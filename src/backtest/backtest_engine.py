@@ -201,7 +201,12 @@ class BacktestEngine:
         pd.DataFrame
             資産推移のDataFrame
         """
-        return pd.DataFrame(self.equity_curve).set_index('time')
+        df = pd.DataFrame(self.equity_curve)
+        if len(df) > 0:
+            if 'time' in df.columns:
+                return df.set_index('time')
+            else:
+                return df
     
     def get_trade_log(self) -> pd.DataFrame:
         """
