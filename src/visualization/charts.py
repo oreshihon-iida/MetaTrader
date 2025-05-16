@@ -77,6 +77,35 @@ class ChartGenerator:
         plt.Figure
             生成されたグラフ
         """
+        if trade_history.empty:
+            fig, ax = plt.subplots(figsize=(12, 6))
+            ax.set_title('月別損益（データなし）', fontsize=15)
+            ax.set_xlabel('月', fontsize=12)
+            ax.set_ylabel('損益（円）', fontsize=12)
+            ax.grid(True, axis='y')
+            
+            if save:
+                plt.tight_layout()
+                plt.savefig(os.path.join(self.chart_dir, 'monthly_returns.png'), dpi=300)
+            
+            return fig
+        
+        if not isinstance(trade_history.index, pd.DatetimeIndex):
+            if 'エントリー時間' in trade_history.columns:
+                trade_history = trade_history.set_index('エントリー時間')
+            else:
+                fig, ax = plt.subplots(figsize=(12, 6))
+                ax.set_title('月別損益（日付データなし）', fontsize=15)
+                ax.set_xlabel('月', fontsize=12)
+                ax.set_ylabel('損益（円）', fontsize=12)
+                ax.grid(True, axis='y')
+                
+                if save:
+                    plt.tight_layout()
+                    plt.savefig(os.path.join(self.chart_dir, 'monthly_returns.png'), dpi=300)
+                
+                return fig
+        
         trade_history['月'] = trade_history.index.to_period('M')
         monthly_returns = trade_history.groupby('月')['損益(円)'].sum()
         
@@ -160,6 +189,37 @@ class ChartGenerator:
         plt.Figure
             生成されたグラフ
         """
+        if trade_history.empty:
+            fig, ax = plt.subplots(figsize=(15, 10))
+            ax.set_title('戦略比較（データなし）', fontsize=15)
+            ax.grid(True, axis='y')
+            
+            if save:
+                plt.tight_layout()
+                plt.savefig(os.path.join(self.chart_dir, 'strategy_comparison.png'), dpi=300)
+            
+            return fig
+        
+        required_columns = ['戦略', '損益(円)', '損益(pips)']
+        for col in required_columns:
+            if col not in trade_history.columns:
+                if col == '戦略' and '戦略' not in trade_history.columns and 'strategy' in trade_history.columns:
+                    trade_history['戦略'] = trade_history['strategy']
+                elif col == '損益(円)' and '損益(円)' not in trade_history.columns and 'profit_jpy' in trade_history.columns:
+                    trade_history['損益(円)'] = trade_history['profit_jpy']
+                elif col == '損益(pips)' and '損益(pips)' not in trade_history.columns and 'profit_pips' in trade_history.columns:
+                    trade_history['損益(pips)'] = trade_history['profit_pips']
+                else:
+                    fig, ax = plt.subplots(figsize=(15, 10))
+                    ax.set_title(f'戦略比較（{col}列がありません）', fontsize=15)
+                    ax.grid(True, axis='y')
+                    
+                    if save:
+                        plt.tight_layout()
+                        plt.savefig(os.path.join(self.chart_dir, 'strategy_comparison.png'), dpi=300)
+                    
+                    return fig
+        
         strategy_stats = trade_history.groupby('戦略').agg({
             '損益(円)': ['sum', 'mean', 'count'],
             '損益(pips)': ['sum', 'mean']

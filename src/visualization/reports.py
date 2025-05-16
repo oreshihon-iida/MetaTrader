@@ -73,12 +73,20 @@ class ReportGenerator:
             max_drawdown = abs(equity_curve['drawdown'].min())
         
         monthly_win_rate = 0
-        if not trade_history.empty and trade_history.index.is_all_dates:
-            trade_history['月'] = trade_history.index.to_period('M')
-            monthly_returns = trade_history.groupby('月')['損益(円)'].sum()
-            profitable_months = len(monthly_returns[monthly_returns > 0])
-            total_months = len(monthly_returns)
-            monthly_win_rate = profitable_months / total_months * 100 if total_months > 0 else 0
+        if not trade_history.empty:
+            if isinstance(trade_history.index, pd.DatetimeIndex):
+                trade_history['月'] = trade_history.index.to_period('M')
+                monthly_returns = trade_history.groupby('月')['損益(円)'].sum()
+                profitable_months = len(monthly_returns[monthly_returns > 0])
+                total_months = len(monthly_returns)
+                monthly_win_rate = profitable_months / total_months * 100 if total_months > 0 else 0
+            elif 'エントリー時間' in trade_history.columns:
+                trade_history = trade_history.set_index('エントリー時間')
+                trade_history['月'] = trade_history.index.to_period('M')
+                monthly_returns = trade_history.groupby('月')['損益(円)'].sum()
+                profitable_months = len(monthly_returns[monthly_returns > 0])
+                total_months = len(monthly_returns)
+                monthly_win_rate = profitable_months / total_months * 100 if total_months > 0 else 0
         
         strategy_stats = {}
         strategy_win_rates = {}
@@ -209,9 +217,28 @@ class ReportGenerator:
             f.write("## 月別パフォーマンス\n\n")
             
             if trade_history is not None and not trade_history.empty and '損益(円)' in trade_history.columns and '損益(pips)' in trade_history.columns:
-                if trade_history.index.is_all_dates:
+                if isinstance(trade_history.index, pd.DatetimeIndex):
                     trade_history['月'] = trade_history.index.to_period('M')
                     monthly_stats = trade_history.groupby('月').agg({
+                        '損益(円)': ['sum', 'count'],
+                        '損益(pips)': 'sum'
+                    })
+                    
+                    f.write("| 月 | トレード数 | 総利益 (円) | 総利益 (pips) |\n")
+                    f.write("|------|------------|------------|---------------|\n")
+                    
+                    for month, row in monthly_stats.iterrows():
+                        month_str = month.strftime('%Y-%m')
+                        trades = row[('損益(円)', 'count')]
+                        profit_jpy = row[('損益(円)', 'sum')]
+                        profit_pips = row[('損益(pips)', 'sum')]
+                        
+                        f.write(f"| {month_str} | {trades} | {profit_jpy:,.0f} | {profit_pips:.1f} |\n")
+                elif 'エントリー時間' in trade_history.columns:
+                    temp_df = trade_history.copy()
+                    temp_df = temp_df.set_index('エントリー時間')
+                    temp_df['月'] = temp_df.index.to_period('M')
+                    monthly_stats = temp_df.groupby('月').agg({
                         '損益(円)': ['sum', 'count'],
                         '損益(pips)': 'sum'
                     })
