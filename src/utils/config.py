@@ -42,8 +42,8 @@ class Config:
                 'lot_size': 0.01,  # 1トレードあたりのロットサイズ
                 'max_positions': 3,  # 同時に保有できる最大ポジション数
                 'spread_pips': 0.2,  # スプレッド（pips）
-                'start_date': '2020-01-01',  # バックテスト開始日
-                'end_date': '2025-05-31',  # バックテスト終了日
+                'start_date': '2000-06-01',  # バックテスト開始日
+                'end_date': '2000-12-29',  # バックテスト終了日
             },
             
             'strategies': {
