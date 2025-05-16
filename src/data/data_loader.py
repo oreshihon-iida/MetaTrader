@@ -68,19 +68,19 @@ class DataLoader:
         """
         try:
             df = pd.read_csv(csv_path, header=None, 
-                            names=['DateTime', 'Open', 'High', 'Low', 'Close', 'Volume'])
+                            names=['Date', 'Time', 'Open', 'High', 'Low', 'Close', 'Volume'])
             
-            df['Datetime'] = pd.to_datetime(df['DateTime'], format='%Y.%m.%d,%H:%M')
+            df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], format='%Y.%m.%d %H:%M')
             
-            df = df.drop(['DateTime'], axis=1)
+            df = df.drop(['Date', 'Time'], axis=1)
             
             df.set_index('Datetime', inplace=True)
             
             return df
         except Exception as e:
-            print(f"Error in standard format, trying alternative format: {e}")
+            print(f"Error loading CSV file {csv_path}: {e}")
             try:
-                df = pd.read_csv(csv_path, header=None, 
+                df = pd.read_csv(csv_path, header=None, sep=';',
                                 names=['Date', 'Time', 'Open', 'High', 'Low', 'Close', 'Volume'])
                 
                 df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
