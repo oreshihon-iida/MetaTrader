@@ -62,10 +62,21 @@ def main():
     
     logger.log_info("チャート生成中...")
     chart_generator = ChartGenerator(config.get('output', 'chart_dir'))
-    chart_generator.plot_equity_curve(equity_curve)
-    chart_generator.plot_monthly_returns(trade_history)
-    chart_generator.plot_drawdown(equity_curve)
-    chart_generator.plot_strategy_comparison(trade_history)
+    
+    if equity_curve is not None and not equity_curve.empty:
+        chart_generator.plot_equity_curve(equity_curve)
+        chart_generator.plot_drawdown(equity_curve)
+        logger.log_info("資産推移グラフとドローダウングラフを生成しました")
+    else:
+        logger.log_warning("資産推移データがないため、資産推移グラフとドローダウングラフを生成できませんでした")
+    
+    if trade_history is not None and not trade_history.empty:
+        chart_generator.plot_monthly_returns(trade_history)
+        chart_generator.plot_strategy_comparison(trade_history)
+        logger.log_info("月別リターングラフと戦略比較グラフを生成しました")
+    else:
+        logger.log_warning("トレード履歴がないため、月別リターングラフと戦略比較グラフを生成できませんでした")
+    
     logger.log_info("チャート生成完了")
     
     logger.log_info("レポート生成中...")

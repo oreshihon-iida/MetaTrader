@@ -195,7 +195,7 @@ class BacktestEngine:
     def get_equity_curve(self) -> pd.DataFrame:
         """
         資産推移を取得する
-
+        
         Returns
         -------
         pd.DataFrame
@@ -207,6 +207,7 @@ class BacktestEngine:
                 return df.set_index('time')
             else:
                 return df
+        return pd.DataFrame(columns=['balance', 'equity', 'open_positions'])
 
     def get_trade_log(self) -> pd.DataFrame:
         """
