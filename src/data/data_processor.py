@@ -21,15 +21,15 @@ class DataProcessor:
         """
         self.data = data
     
-    def resample(self, timeframe: str = '15T') -> pd.DataFrame:
+    def resample(self, timeframe: str = '15min') -> pd.DataFrame:
         """
         指定された時間足にリサンプリングする
         
         Parameters
         ----------
-        timeframe : str, default '15T'
+        timeframe : str, default '15min'
             リサンプリングする時間足（pandas resampleの形式）
-            例: '15T'=15分, '1H'=1時間
+            例: '15min'=15分, '1H'=1時間
         
         Returns
         -------
@@ -102,7 +102,9 @@ class DataProcessor:
             how='left'
         )
         
-        df[['tokyo_high', 'tokyo_low']] = df.groupby('date')[['tokyo_high', 'tokyo_low']].fillna(method='ffill')
+        for group_name, group_data in df.groupby('date'):
+            mask = group_data.index
+            df.loc[mask, ['tokyo_high', 'tokyo_low']] = group_data[['tokyo_high', 'tokyo_low']].ffill()
         
         df = df.drop('date', axis=1)
         
