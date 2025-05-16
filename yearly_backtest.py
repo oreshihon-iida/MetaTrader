@@ -48,9 +48,19 @@ def run_yearly_backtest(year, max_positions=2):
     data_processor = DataProcessor(data)
     
     resampled_data = data_processor.resample(config.get('data', 'timeframe'))
-    logger.log_info(f"リサンプリング完了: {len(resampled_data)} 行")
+    logger.log_info(f"15分足リサンプリング完了: {len(resampled_data)} 行")
+    
+    hourly_data = data_processor.resample('1H')
+    logger.log_info(f"1時間足リサンプリング完了: {len(hourly_data)} 行")
     
     resampled_data = data_processor.add_technical_indicators(resampled_data)
+    hourly_data = data_processor.add_technical_indicators(hourly_data)
+    
+    resampled_data = data_processor.detect_market_condition(resampled_data)
+    hourly_data = data_processor.detect_market_condition(hourly_data)
+    
+    resampled_data = data_processor.detect_support_resistance_levels(resampled_data)
+    hourly_data = data_processor.detect_support_resistance_levels(hourly_data)
     
     resampled_data = data_processor.get_tokyo_session_range(resampled_data)
     logger.log_info("テクニカル指標の計算完了")
@@ -59,6 +69,8 @@ def run_yearly_backtest(year, max_positions=2):
     end_date = f"{year}-12-31"
     
     year_data = resampled_data.loc[start_date:end_date]
+    year_hourly_data = hourly_data.loc[start_date:end_date]
+    
     if year_data.empty:
         logger.log_warning(f"{year}年のデータがありません")
         return {
@@ -76,6 +88,7 @@ def run_yearly_backtest(year, max_positions=2):
     
     backtest_engine = BacktestEngine(
         data=year_data,
+        hourly_data=year_hourly_data,
         initial_balance=config.get('backtest', 'initial_balance'),
         lot_size=config.get('backtest', 'lot_size'),
         max_positions=max_positions,  # 同時ポジション数を指定値に設定
@@ -124,11 +137,13 @@ def run_yearly_backtest(year, max_positions=2):
 
 def main():
     """
-    2000年から2025年までの各年のバックテストを実行し、結果をまとめる
+    代表的な年のバックテストを実行し、結果をまとめる
     """
     results = []
     
-    for year in range(2000, 2026):
+    representative_years = [2010]
+    
+    for year in representative_years:
         print(f"=== {year}年のバックテスト実行中 ===")
         result = run_yearly_backtest(year, max_positions=2)
         results.append(result)

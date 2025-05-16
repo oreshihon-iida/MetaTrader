@@ -13,7 +13,7 @@ class BacktestEngine:
     バックテストエンジン
     """
 
-    def __init__(self, data: pd.DataFrame, initial_balance: float = 200000,
+    def __init__(self, data: pd.DataFrame, hourly_data: pd.DataFrame = None, initial_balance: float = 200000,
                  lot_size: float = 0.01, max_positions: int = 3,
                  spread_pips: float = 0.2):
         """
@@ -23,6 +23,8 @@ class BacktestEngine:
         ----------
         data : pd.DataFrame
             バックテスト対象のデータ（15分足）
+        hourly_data : pd.DataFrame, default None
+            1時間足データ（複数時間足分析用）
         initial_balance : float, default 200000
             初期資金（円）
         lot_size : float, default 0.01
@@ -33,6 +35,7 @@ class BacktestEngine:
             スプレッド（pips）
         """
         self.data = data.copy()
+        self.hourly_data = hourly_data.copy() if hourly_data is not None else None
         self.initial_balance = initial_balance
         self.balance = initial_balance
         self.lot_size = lot_size
@@ -58,34 +61,38 @@ class BacktestEngine:
             sl_pips=10.0,
             tp_pips=15.0,
             atr_multiplier=1.5,
-            min_adx=25.0
+            min_adx=25.0,
+            use_higher_timeframe=True
         )
         
         bollinger_rsi = BollingerRsiStrategy(
             sl_pips=7.0,
             tp_pips=10.0,
             atr_multiplier=1.2,
-            max_adx=20.0
+            max_adx=20.0,
+            use_higher_timeframe=True
         )
         
         trend_following = TrendFollowingStrategy(
             short_ma=5,
             long_ma=20,
             min_adx=25.0,
-            atr_multiplier=2.0
+            atr_multiplier=2.0,
+            use_higher_timeframe=True
         )
         
         range_trading = RangeTradingStrategy(
             max_adx=20.0,
             stoch_k=14,
             stoch_d=3,
-            atr_multiplier=1.0
+            atr_multiplier=1.0,
+            use_higher_timeframe=True
         )
         
-        self.data = tokyo_london.generate_signals(self.data)
-        self.data = bollinger_rsi.generate_signals(self.data)
-        self.data = trend_following.generate_signals(self.data)
-        self.data = range_trading.generate_signals(self.data)
+        self.data = tokyo_london.generate_signals(self.data, self.hourly_data)
+        self.data = bollinger_rsi.generate_signals(self.data, self.hourly_data)
+        self.data = trend_following.generate_signals(self.data, self.hourly_data)
+        self.data = range_trading.generate_signals(self.data, self.hourly_data)
 
         for i in range(len(self.data)):
             current_time = self.data.index[i]

@@ -15,7 +15,7 @@ class RangeTradingStrategy:
     - ATRベースの動的な損切り/利確幅
     """
     
-    def __init__(self, max_adx: float = 20.0, stoch_k: int = 14, stoch_d: int = 3, atr_multiplier: float = 1.0):
+    def __init__(self, max_adx: float = 20.0, stoch_k: int = 14, stoch_d: int = 3, atr_multiplier: float = 1.0, use_higher_timeframe: bool = True):
         """
         初期化
         
@@ -29,14 +29,17 @@ class RangeTradingStrategy:
             ストキャスティクスのD期間
         atr_multiplier : float, default 1.0
             ATRの乗数（動的なストップロス/テイクプロフィットの計算に使用）
+        use_higher_timeframe : bool, default True
+            1時間足での確認を使用するかどうか
         """
         self.max_adx = max_adx
         self.stoch_k = stoch_k
         self.stoch_d = stoch_d
         self.atr_multiplier = atr_multiplier
+        self.use_higher_timeframe = use_higher_timeframe
         self.name = "レンジ取引"
     
-    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
+    def generate_signals(self, df: pd.DataFrame, hourly_df: pd.DataFrame = None) -> pd.DataFrame:
         """
         トレードシグナルを生成する
         
@@ -44,6 +47,8 @@ class RangeTradingStrategy:
         ----------
         df : pd.DataFrame
             15分足のOHLCデータ
+        hourly_df : pd.DataFrame, default None
+            1時間足のOHLCデータ（複数時間足分析用）
                
         Returns
         -------
@@ -69,32 +74,72 @@ class RangeTradingStrategy:
             if 'adx' in curr_row and curr_row['adx'] > self.max_adx:
                 continue
             
-            if curr_row['Close'] <= curr_row['bb_lower'] and curr_row['stoch_k'] <= 20 and curr_row['stoch_d'] <= 20:
+            higher_tf_is_range = True  # デフォルトではレンジ相場と仮定
+            
+            if self.use_higher_timeframe and hourly_df is not None:
+                current_time = df.index[i]
+                closest_hourly_idx = hourly_df.index.get_indexer([current_time], method='pad')[0]
+                
+                if closest_hourly_idx >= 0:
+                    higher_tf_row = hourly_df.iloc[closest_hourly_idx]
+                    if 'adx' in higher_tf_row:
+                        higher_tf_is_range = higher_tf_row['adx'] <= self.max_adx
+            
+            near_resistance = np.nan
+            near_support = np.nan
+            
+            if 'nearest_resistance' in curr_row:
+                near_resistance = curr_row['nearest_resistance']
+            if 'nearest_support' in curr_row:
+                near_support = curr_row['nearest_support']
+            
+            if (curr_row['Close'] <= curr_row['bb_lower'] and 
+                curr_row['stoch_k'] <= 20 and curr_row['stoch_d'] <= 20 and
+                (not self.use_higher_timeframe or hourly_df is None or higher_tf_is_range)):
+                signal_strength = 1.0
+                if not np.isnan(near_support) and abs(curr_row['Close'] - near_support) < 10 * 0.01:  # 10pips以内
+                    signal_strength = 1.5  # シグナル強度を上げる
+                
                 df.loc[df.index[i], 'signal'] = 1
                 df.loc[df.index[i], 'entry_price'] = curr_row['Close']
                 df.loc[df.index[i], 'strategy'] = self.name
                 
                 if 'atr' in curr_row:
-                    sl_pips_dynamic = self.atr_multiplier * curr_row['atr'] / 0.01
-                    tp_pips_dynamic = self.atr_multiplier * 1.5 * curr_row['atr'] / 0.01
+                    sl_pips_dynamic = self.atr_multiplier * curr_row['atr'] / 0.01 * signal_strength
+                    tp_pips_dynamic = self.atr_multiplier * 1.5 * curr_row['atr'] / 0.01 * signal_strength
+                    
+                    adjusted_tp = curr_row['Close'] + tp_pips_dynamic * 0.01
+                    if not np.isnan(near_resistance) and near_resistance > curr_row['Close'] and near_resistance < adjusted_tp:
+                        adjusted_tp = near_resistance
                     
                     df.loc[df.index[i], 'sl_price'] = curr_row['Close'] - sl_pips_dynamic * 0.01
-                    df.loc[df.index[i], 'tp_price'] = curr_row['Close'] + tp_pips_dynamic * 0.01
+                    df.loc[df.index[i], 'tp_price'] = adjusted_tp
                 else:
                     df.loc[df.index[i], 'sl_price'] = curr_row['Close'] - 7.0 * 0.01  # デフォルト7pips
                     df.loc[df.index[i], 'tp_price'] = curr_row['Close'] + 10.0 * 0.01  # デフォルト10pips
             
-            elif curr_row['Close'] >= curr_row['bb_upper'] and curr_row['stoch_k'] >= 80 and curr_row['stoch_d'] >= 80:
+            elif (curr_row['Close'] >= curr_row['bb_upper'] and 
+                  curr_row['stoch_k'] >= 80 and curr_row['stoch_d'] >= 80 and
+                  (not self.use_higher_timeframe or hourly_df is None or higher_tf_is_range)):
+                
+                signal_strength = 1.0
+                if not np.isnan(near_resistance) and abs(curr_row['Close'] - near_resistance) < 10 * 0.01:  # 10pips以内
+                    signal_strength = 1.5  # シグナル強度を上げる
+                
                 df.loc[df.index[i], 'signal'] = -1
                 df.loc[df.index[i], 'entry_price'] = curr_row['Close']
                 df.loc[df.index[i], 'strategy'] = self.name
                 
                 if 'atr' in curr_row:
-                    sl_pips_dynamic = self.atr_multiplier * curr_row['atr'] / 0.01
-                    tp_pips_dynamic = self.atr_multiplier * 1.5 * curr_row['atr'] / 0.01
+                    sl_pips_dynamic = self.atr_multiplier * curr_row['atr'] / 0.01 * signal_strength
+                    tp_pips_dynamic = self.atr_multiplier * 1.5 * curr_row['atr'] / 0.01 * signal_strength
+                    
+                    adjusted_tp = curr_row['Close'] - tp_pips_dynamic * 0.01
+                    if not np.isnan(near_support) and near_support < curr_row['Close'] and near_support > adjusted_tp:
+                        adjusted_tp = near_support
                     
                     df.loc[df.index[i], 'sl_price'] = curr_row['Close'] + sl_pips_dynamic * 0.01
-                    df.loc[df.index[i], 'tp_price'] = curr_row['Close'] - tp_pips_dynamic * 0.01
+                    df.loc[df.index[i], 'tp_price'] = adjusted_tp
                 else:
                     df.loc[df.index[i], 'sl_price'] = curr_row['Close'] + 7.0 * 0.01  # デフォルト7pips
                     df.loc[df.index[i], 'tp_price'] = curr_row['Close'] - 10.0 * 0.01  # デフォルト10pips
