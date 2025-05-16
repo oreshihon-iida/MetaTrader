@@ -58,12 +58,12 @@ def main():
     tokyo_range_count = backtest_data.dropna(subset=['tokyo_high', 'tokyo_low']).shape[0]
     print(f'Rows with Tokyo range data: {tokyo_range_count}')
     
-    backtest_data['hour_jst'] = (backtest_data.index + pd.Timedelta(hours=9)).hour
+    backtest_data.loc[:, 'hour_jst'] = (backtest_data.index + pd.Timedelta(hours=9)).hour
     london_session = backtest_data[backtest_data['hour_jst'] >= 16]
     print(f'Rows after 16:00 JST: {london_session.shape[0]}')
     
     if not london_session.empty and tokyo_range_count > 0:
-        london_session['prev_close'] = london_session['Close'].shift(1)
+        london_session.loc[:, 'prev_close'] = london_session['Close'].shift(1)
         breakout_up = ((london_session['Close'] > london_session['tokyo_high']) & 
                       (london_session['prev_close'] <= london_session['tokyo_high']))
         breakout_down = ((london_session['Close'] < london_session['tokyo_low']) & 
