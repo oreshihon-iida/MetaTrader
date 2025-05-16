@@ -66,15 +66,33 @@ class DataLoader:
         pd.DataFrame
             読み込まれたデータ
         """
-        df = pd.read_csv(csv_path, names=['Date', 'Time', 'Open', 'High', 'Low', 'Close', 'Volume'])
-        
-        df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-        
-        df = df.drop(['Date', 'Time'], axis=1)
-        
-        df.set_index('Datetime', inplace=True)
-        
-        return df
+        try:
+            df = pd.read_csv(csv_path, header=None, 
+                            names=['DateTime', 'Open', 'High', 'Low', 'Close', 'Volume'])
+            
+            df['Datetime'] = pd.to_datetime(df['DateTime'], format='%Y.%m.%d,%H:%M')
+            
+            df = df.drop(['DateTime'], axis=1)
+            
+            df.set_index('Datetime', inplace=True)
+            
+            return df
+        except Exception as e:
+            print(f"Error in standard format, trying alternative format: {e}")
+            try:
+                df = pd.read_csv(csv_path, header=None, 
+                                names=['Date', 'Time', 'Open', 'High', 'Low', 'Close', 'Volume'])
+                
+                df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
+                
+                df = df.drop(['Date', 'Time'], axis=1)
+                
+                df.set_index('Datetime', inplace=True)
+                
+                return df
+            except Exception as e2:
+                print(f"Error in alternative format: {e2}")
+                return pd.DataFrame(columns=['Open', 'High', 'Low', 'Close', 'Volume'])
     
     def load_all_data(self) -> pd.DataFrame:
         """
