@@ -6,13 +6,15 @@ from src.data.data_loader import DataLoader
 from src.data.data_processor import DataProcessor
 from src.strategies.tokyo_london import TokyoLondonStrategy
 from src.strategies.bollinger_rsi import BollingerRsiStrategy
+from src.strategies.trend_following import TrendFollowingStrategy
+from src.strategies.range_trading import RangeTradingStrategy
 from src.backtest.backtest_engine import BacktestEngine
 from src.utils.logger import Logger
 from src.utils.config import Config
 from src.visualization.charts import ChartGenerator
 from src.visualization.reports import ReportGenerator
 
-def run_yearly_backtest(year, max_positions=1):
+def run_yearly_backtest(year, max_positions=2):
     """
     指定された年のバックテストを実行する
     
@@ -20,7 +22,7 @@ def run_yearly_backtest(year, max_positions=1):
     ----------
     year : int
         バックテスト対象の年
-    max_positions : int, default 1
+    max_positions : int, default 2
         同時に保有できる最大ポジション数
         
     Returns
@@ -128,7 +130,7 @@ def main():
     
     for year in range(2000, 2026):
         print(f"=== {year}年のバックテスト実行中 ===")
-        result = run_yearly_backtest(year, max_positions=1)
+        result = run_yearly_backtest(year, max_positions=2)
         results.append(result)
         print(f"=== {year}年のバックテスト完了 ===")
         print(f"トレード数: {result['trades']}")
@@ -144,7 +146,7 @@ def main():
     
     with open("results/yearly/yearly_results.md", "w") as f:
         f.write("# 年別バックテスト結果\n\n")
-        f.write("同時ポジション数: 1\n\n")
+        f.write("同時ポジション数: 2\n\n")
         f.write("| 年 | データ有無 | トレード数 | 総利益 (円) | 勝率 (%) | 初期残高 (円) | 最終残高 (円) | 年間リターン (%) |\n")
         f.write("|-----|----------|------------|------------|----------|--------------|--------------|----------------|\n")
         

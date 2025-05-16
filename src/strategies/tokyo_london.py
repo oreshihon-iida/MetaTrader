@@ -6,25 +6,34 @@ class TokyoLondonStrategy:
     """
     東京レンジ・ロンドンブレイクアウト戦略
     
-    9:00～15:00（東京時間）の高値・安値をレンジとして記録
-    16:00以降、高値・安値のどちらかを明確にブレイクしたら、その方向にエントリー
-    損切り幅（SL）：10pips
-    利確幅（TP）：15pips
+    東京時間のレンジを計算し、ロンドン時間にブレイクアウトしたらエントリーする
+    
+    改善ポイント：
+    - ADXによる市場環境フィルター（トレンド相場のみで取引）
+    - 時間帯フィルター（ニューヨーク時間のボラティリティが高い時間を除外）
+    - ATRベースの動的な損切り/利確幅
+    - 偽ブレイクアウト対策（一定以上の値動きがあった場合のみエントリー）
     """
     
-    def __init__(self, sl_pips: float = 10.0, tp_pips: float = 15.0):
+    def __init__(self, sl_pips: float = 10.0, tp_pips: float = 15.0, atr_multiplier: float = 1.5, min_adx: float = 25.0):
         """
         初期化
         
         Parameters
         ----------
         sl_pips : float, default 10.0
-            損切り幅（pips）
+            固定ストップロス（pips）
         tp_pips : float, default 15.0
-            利確幅（pips）
+            固定テイクプロフィット（pips）
+        atr_multiplier : float, default 1.5
+            ATRの乗数（動的なストップロス/テイクプロフィットの計算に使用）
+        min_adx : float, default 25.0
+            最小ADX値（これより低い場合はエントリーしない）
         """
         self.sl_pips = sl_pips
         self.tp_pips = tp_pips
+        self.atr_multiplier = atr_multiplier
+        self.min_adx = min_adx
         self.name = "東京レンジ・ロンドンブレイクアウト"
     
     def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -34,51 +43,75 @@ class TokyoLondonStrategy:
         Parameters
         ----------
         df : pd.DataFrame
-            処理対象のデータ（15分足）。tokyo_high, tokyo_lowカラムが必要。
-            
+            15分足のOHLCデータ
+               
         Returns
         -------
         pd.DataFrame
-            シグナルが追加されたDataFrame
+            トレードシグナルが追加されたDataFrame
         """
-        df['hour_jst'] = (df.index + pd.Timedelta(hours=9)).hour
+        df = df.copy()
         
         df['signal'] = 0
         df['entry_price'] = np.nan
         df['sl_price'] = np.nan
         df['tp_price'] = np.nan
+        df['trailing_stop'] = False  # トレイリングストップフラグ
         df['strategy'] = None
         
-        df['prev_close'] = df['Close'].shift(1)
+        jst_hours = (df.index.hour + 9) % 24
         
-        london_session = df[df['hour_jst'] >= 16].copy()
+        df['valid_time'] = ~((jst_hours >= 21) & (jst_hours < 24))
         
-        for i in range(1, len(london_session)):
-            idx = london_session.index[i]
-            prev_idx = london_session.index[i-1]
+        for i in range(1, len(df)):
+            prev_row = df.iloc[i-1]
+            curr_row = df.iloc[i]
             
-            if df.loc[prev_idx, 'signal'] != 0:
+            if not curr_row['valid_time']:
+                continue
+                
+            if 'adx' in curr_row and curr_row['adx'] < self.min_adx:
                 continue
             
-            current = london_session.iloc[i]
-            previous = london_session.iloc[i-1]
+            jst_hour = (df.index[i].hour + 9) % 24
             
-            if (previous['Close'] > current['tokyo_high'] and 
-                current['prev_close'] <= current['tokyo_high']):
-                df.loc[idx, 'signal'] = 1
-                df.loc[idx, 'entry_price'] = current['Close']
-                df.loc[idx, 'sl_price'] = current['Close'] - self.sl_pips * 0.01
-                df.loc[idx, 'tp_price'] = current['Close'] + self.tp_pips * 0.01
-                df.loc[idx, 'strategy'] = self.name
-            
-            elif (previous['Close'] < current['tokyo_low'] and 
-                  current['prev_close'] >= current['tokyo_low']):
-                df.loc[idx, 'signal'] = -1
-                df.loc[idx, 'entry_price'] = current['Close']
-                df.loc[idx, 'sl_price'] = current['Close'] + self.sl_pips * 0.01
-                df.loc[idx, 'tp_price'] = current['Close'] - self.tp_pips * 0.01
-                df.loc[idx, 'strategy'] = self.name
+            if jst_hour >= 16:
+                tokyo_high = curr_row['tokyo_high']
+                tokyo_low = curr_row['tokyo_low']
+                
+                if curr_row['Close'] > tokyo_high and (curr_row['Close'] - tokyo_high) > 0.5 * curr_row['atr']:
+                    df.loc[df.index[i], 'signal'] = 1
+                    df.loc[df.index[i], 'entry_price'] = curr_row['Close']
+                    df.loc[df.index[i], 'strategy'] = self.name
+                    
+                    if 'atr' in curr_row:
+                        sl_pips_dynamic = self.atr_multiplier * curr_row['atr'] / 0.01  # 0.01 = 1pip（USD/JPY）
+                        tp_pips_dynamic = self.atr_multiplier * 1.5 * curr_row['atr'] / 0.01
+                        
+                        df.loc[df.index[i], 'sl_price'] = curr_row['Close'] - sl_pips_dynamic * 0.01
+                        df.loc[df.index[i], 'tp_price'] = curr_row['Close'] + tp_pips_dynamic * 0.01
+                        df.loc[df.index[i], 'trailing_stop'] = True
+                    else:
+                        df.loc[df.index[i], 'sl_price'] = curr_row['Close'] - self.sl_pips * 0.01
+                        df.loc[df.index[i], 'tp_price'] = curr_row['Close'] + self.tp_pips * 0.01
+                
+                elif curr_row['Close'] < tokyo_low and (tokyo_low - curr_row['Close']) > 0.5 * curr_row['atr']:
+                    df.loc[df.index[i], 'signal'] = -1
+                    df.loc[df.index[i], 'entry_price'] = curr_row['Close']
+                    df.loc[df.index[i], 'strategy'] = self.name
+                    
+                    if 'atr' in curr_row:
+                        sl_pips_dynamic = self.atr_multiplier * curr_row['atr'] / 0.01
+                        tp_pips_dynamic = self.atr_multiplier * 1.5 * curr_row['atr'] / 0.01
+                        
+                        df.loc[df.index[i], 'sl_price'] = curr_row['Close'] + sl_pips_dynamic * 0.01
+                        df.loc[df.index[i], 'tp_price'] = curr_row['Close'] - tp_pips_dynamic * 0.01
+                        df.loc[df.index[i], 'trailing_stop'] = True
+                    else:
+                        df.loc[df.index[i], 'sl_price'] = curr_row['Close'] + self.sl_pips * 0.01
+                        df.loc[df.index[i], 'tp_price'] = curr_row['Close'] - self.tp_pips * 0.01
         
-        df = df.drop(['hour_jst', 'prev_close'], axis=1)
+        if 'valid_time' in df.columns:
+            df = df.drop('valid_time', axis=1)
         
         return df

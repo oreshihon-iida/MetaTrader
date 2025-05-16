@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional
-from ta.volatility import BollingerBands
+from ta.volatility import BollingerBands, AverageTrueRange
 from ta.momentum import RSIIndicator
+from ta.trend import ADXIndicator
 
 class DataProcessor:
     """
@@ -67,6 +68,36 @@ class DataProcessor:
         
         rsi = RSIIndicator(close=df['Close'], window=14)
         df['rsi'] = rsi.rsi()
+        
+        adx = ADXIndicator(high=df['High'], low=df['Low'], close=df['Close'], window=14)
+        df['adx'] = adx.adx()
+        df['adx_pos'] = adx.adx_pos()  # +DI
+        df['adx_neg'] = adx.adx_neg()  # -DI
+        
+        atr = AverageTrueRange(high=df['High'], low=df['Low'], close=df['Close'], window=14)
+        df['atr'] = atr.average_true_range()
+        
+        return df
+    
+    def detect_market_condition(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        市場環境（トレンド/レンジ）を判断し、データフレームに追加する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            市場環境を追加するDataFrame
+            
+        Returns
+        -------
+        pd.DataFrame
+            市場環境が追加されたDataFrame
+        """
+        df['is_trend'] = df['adx'] >= 25
+        
+        df['trend_direction'] = 0  # 0=中立
+        df.loc[(df['is_trend']) & (df['adx_pos'] > df['adx_neg']), 'trend_direction'] = 1  # 1=上昇トレンド
+        df.loc[(df['is_trend']) & (df['adx_pos'] < df['adx_neg']), 'trend_direction'] = -1  # -1=下降トレンド
         
         return df
     

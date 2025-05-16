@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Tuple
 import datetime
 from ..strategies.tokyo_london import TokyoLondonStrategy
 from ..strategies.bollinger_rsi import BollingerRsiStrategy
+from ..strategies.trend_following import TrendFollowingStrategy
+from ..strategies.range_trading import RangeTradingStrategy
 from .position import Position, PositionStatus
 
 class BacktestEngine:
@@ -50,13 +52,40 @@ class BacktestEngine:
         Returns
         -------
         pd.DataFrame
-            トレード履歴
+            トレード履歴のDataFrame
         """
-        tokyo_london = TokyoLondonStrategy()
-        bollinger_rsi = BollingerRsiStrategy()
-
-        self.data = bollinger_rsi.generate_signals(self.data)
+        tokyo_london = TokyoLondonStrategy(
+            sl_pips=10.0,
+            tp_pips=15.0,
+            atr_multiplier=1.5,
+            min_adx=25.0
+        )
+        
+        bollinger_rsi = BollingerRsiStrategy(
+            sl_pips=7.0,
+            tp_pips=10.0,
+            atr_multiplier=1.2,
+            max_adx=20.0
+        )
+        
+        trend_following = TrendFollowingStrategy(
+            short_ma=5,
+            long_ma=20,
+            min_adx=25.0,
+            atr_multiplier=2.0
+        )
+        
+        range_trading = RangeTradingStrategy(
+            max_adx=20.0,
+            stoch_k=14,
+            stoch_d=3,
+            atr_multiplier=1.0
+        )
+        
         self.data = tokyo_london.generate_signals(self.data)
+        self.data = bollinger_rsi.generate_signals(self.data)
+        self.data = trend_following.generate_signals(self.data)
+        self.data = range_trading.generate_signals(self.data)
 
         for i in range(len(self.data)):
             current_time = self.data.index[i]
@@ -89,7 +118,28 @@ class BacktestEngine:
         positions_to_remove = []
 
         for position in self.open_positions:
-            if position.direction == 1:
+            if position.trailing_stop:
+                if position.direction == 1:  # 買いポジション
+                    if current_bar['High'] > position.trailing_price:
+                        if 'atr' in current_bar:
+                            atr_value = current_bar['atr']
+                            new_sl = current_bar['High'] - atr_value
+                            
+                            if new_sl > position.sl_price:
+                                position.sl_price = new_sl
+                                position.trailing_price = current_bar['High']
+                    
+                else:  # 売りポジション
+                    if current_bar['Low'] < position.trailing_price:
+                        if 'atr' in current_bar:
+                            atr_value = current_bar['atr']
+                            new_sl = current_bar['Low'] + atr_value
+                            
+                            if new_sl < position.sl_price:
+                                position.sl_price = new_sl
+                                position.trailing_price = current_bar['Low']
+            
+            if position.direction == 1:  # 買いポジション
                 if current_bar['High'] >= position.tp_price:
                     position.close_position(current_time, position.tp_price, PositionStatus.CLOSED_TAKE_PROFIT)
                     positions_to_remove.append(position)
@@ -99,7 +149,7 @@ class BacktestEngine:
                     positions_to_remove.append(position)
                     self.balance += position.profit_jpy
 
-            else:
+            else:  # 売りポジション
                 if current_bar['Low'] <= position.tp_price:
                     position.close_position(current_time, position.tp_price, PositionStatus.CLOSED_TAKE_PROFIT)
                     positions_to_remove.append(position)
@@ -131,6 +181,10 @@ class BacktestEngine:
         else:  # 売りの場合はbidを使用
             entry_price -= self.spread_pips * 0.01 / 2
 
+        trailing_stop = False
+        if 'trailing_stop' in current_bar:
+            trailing_stop = current_bar['trailing_stop']
+
         position = Position(
             entry_time=current_time,
             direction=current_bar['signal'],
@@ -138,7 +192,8 @@ class BacktestEngine:
             sl_price=current_bar['sl_price'],
             tp_price=current_bar['tp_price'],
             strategy=current_bar['strategy'],
-            lot_size=self.lot_size
+            lot_size=self.lot_size,
+            trailing_stop=trailing_stop
         )
 
         self.open_positions.append(position)
@@ -152,7 +207,10 @@ class BacktestEngine:
         current_time : pd.Timestamp
             現在の時間
         """
-        unrealized_profit = sum([pos.direction * (self.data.loc[current_time, 'Close'] - pos.entry_price) * 100 * 0.01 * 1000 * pos.lot_size for pos in self.open_positions])
+        current_idx = self.data.index.get_loc(current_time)
+        current_close = self.data.iloc[current_idx]['Close']
+        
+        unrealized_profit = sum([pos.direction * (current_close - pos.entry_price) * 100 * 0.01 * 1000 * pos.lot_size for pos in self.open_positions])
 
         equity = self.balance + unrealized_profit
 
@@ -179,13 +237,19 @@ class BacktestEngine:
         """
         direction_str = "買い" if position.direction == 1 else "売り"
         status_str = position.status.value if position.status else "不明"
+        
+        def format_time(timestamp):
+            return timestamp.strftime('%Y-%m-%d %H:%M') if timestamp is not None else "N/A"
+        
+        entry_time_str = format_time(position.entry_time)
+        exit_time_str = format_time(position.exit_time)
 
         log = {
             'timestamp': position.exit_time,
             'message': f"【{status_str}】{position.strategy}戦略 {direction_str}ポジション決済: "
-                      f"エントリー: {position.entry_time.strftime('%Y-%m-%d %H:%M')} "
+                      f"エントリー: {entry_time_str} "
                       f"@ {position.entry_price:.3f}, "
-                      f"決済: {position.exit_time.strftime('%Y-%m-%d %H:%M')} "
+                      f"決済: {exit_time_str} "
                       f"@ {position.exit_price:.3f}, "
                       f"損益: {position.profit_pips:.1f}pips ({position.profit_jpy:.0f}円)"
         }

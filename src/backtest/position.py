@@ -15,7 +15,8 @@ class Position:
     """
     
     def __init__(self, entry_time: pd.Timestamp, direction: int, entry_price: float, 
-                 sl_price: float, tp_price: float, strategy: str, lot_size: float = 0.01):
+                 sl_price: float, tp_price: float, strategy: str, lot_size: float = 0.01,
+                 trailing_stop: bool = False):
         """
         初期化
         
@@ -35,6 +36,8 @@ class Position:
             使用した戦略の名前
         lot_size : float, default 0.01
             取引サイズ（ロット）
+        trailing_stop : bool, default False
+            トレイリングストップを使用するかどうか
         """
         self.entry_time = entry_time
         self.direction = direction
@@ -43,6 +46,8 @@ class Position:
         self.tp_price = tp_price
         self.strategy = strategy
         self.lot_size = lot_size
+        self.trailing_stop = trailing_stop
+        self.trailing_price = entry_price  # トレイリングストップの基準価格
         
         self.exit_time = None
         self.exit_price = None

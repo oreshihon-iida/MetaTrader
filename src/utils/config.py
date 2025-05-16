@@ -38,9 +38,9 @@ class Config:
             },
             
             'backtest': {
-                'initial_balance': 200000,  # 初期資金（円）
+                'initial_balance': 450000,  # 初期資金（円）
                 'lot_size': 0.01,  # 1トレードあたりのロットサイズ
-                'max_positions': 3,  # 同時に保有できる最大ポジション数
+                'max_positions': 2,  # 同時に保有できる最大ポジション数
                 'spread_pips': 0.2,  # スプレッド（pips）
                 'start_date': '2000-06-01',  # バックテスト開始日
                 'end_date': '2000-12-29',  # バックテスト終了日
