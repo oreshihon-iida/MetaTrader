@@ -34,7 +34,7 @@ class Config:
             'data': {
                 'raw_dir': 'data/raw',
                 'processed_dir': 'data/processed',
-                'timeframe': '15T',  # 15分足
+                'timeframe': '15min',  # 15分足
             },
             
             'backtest': {
