@@ -58,19 +58,19 @@ class BollingerRsiStrategy:
             
             if (previous['Close'] >= previous['bb_upper'] and 
                 previous['rsi'] >= 70):
-                df['signal'].iloc[i] = -1
-                df['entry_price'].iloc[i] = current['Open']
-                df['sl_price'].iloc[i] = current['Open'] + self.sl_pips * 0.01
-                df['tp_price'].iloc[i] = current['Open'] - self.tp_pips * 0.01
-                df['strategy'].iloc[i] = self.name
+                df.loc[df.index[i], 'signal'] = -1
+                df.loc[df.index[i], 'entry_price'] = current['Open']
+                df.loc[df.index[i], 'sl_price'] = current['Open'] + self.sl_pips * 0.01
+                df.loc[df.index[i], 'tp_price'] = current['Open'] - self.tp_pips * 0.01
+                df.loc[df.index[i], 'strategy'] = self.name
             
             elif (previous['Close'] <= previous['bb_lower'] and 
                   previous['rsi'] <= 30):
-                df['signal'].iloc[i] = 1
-                df['entry_price'].iloc[i] = current['Open']
-                df['sl_price'].iloc[i] = current['Open'] - self.sl_pips * 0.01
-                df['tp_price'].iloc[i] = current['Open'] + self.tp_pips * 0.01
-                df['strategy'].iloc[i] = self.name
+                df.loc[df.index[i], 'signal'] = 1
+                df.loc[df.index[i], 'entry_price'] = current['Open']
+                df.loc[df.index[i], 'sl_price'] = current['Open'] - self.sl_pips * 0.01
+                df.loc[df.index[i], 'tp_price'] = current['Open'] + self.tp_pips * 0.01
+                df.loc[df.index[i], 'strategy'] = self.name
         
         df = df.drop('prev_close', axis=1)
         
