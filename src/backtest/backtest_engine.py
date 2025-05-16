@@ -217,7 +217,7 @@ class BacktestEngine:
         pd.DataFrame
             トレードログのDataFrame
         """
-じ        df = pd.DataFrame(self.trade_history)
+        df = pd.DataFrame(self.trade_history)
         if len(df) > 0 and 'timestamp' in df.columns:
             return df.set_index('timestamp')
         return df
