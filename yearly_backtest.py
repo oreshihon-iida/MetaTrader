@@ -6,13 +6,16 @@ from src.data.data_loader import DataLoader
 from src.data.data_processor import DataProcessor
 from src.strategies.tokyo_london import TokyoLondonStrategy
 from src.strategies.bollinger_rsi import BollingerRsiStrategy
+from src.strategies.support_resistance_strategy import SupportResistanceStrategy
+from src.strategies.support_resistance_strategy_improved import SupportResistanceStrategy as SupportResistanceStrategyImproved
+from src.strategies.support_resistance_strategy_v2 import SupportResistanceStrategyV2
 from src.backtest.backtest_engine import BacktestEngine
 from src.utils.logger import Logger
 from src.utils.config import Config
 from src.visualization.charts import ChartGenerator
 from src.visualization.reports import ReportGenerator
 
-def run_yearly_backtest(year, max_positions=1):
+def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'bollinger_rsi']):
     """
     指定された年のバックテストを実行する
     
@@ -43,8 +46,13 @@ def run_yearly_backtest(year, max_positions=1):
     
     logger.log_info(f"{year}年の処理済みデータの読み込みを試みています（{timeframe}）...")
     from src.data.data_processor_enhanced import DataProcessor as EnhancedDataProcessor
-    data_processor = EnhancedDataProcessor(None)
+    data_processor = EnhancedDataProcessor(pd.DataFrame())  # 空のDataFrameで初期化
     year_data = data_processor.load_processed_data(timeframe, year, processed_dir)
+    
+    h1_data = None
+    if 'support_resistance' in strategies:
+        logger.log_info(f"{year}年の1時間足データの読み込みを試みています...")
+        h1_data = data_processor.load_processed_data('1H', year, processed_dir)
     
     if year_data.empty:
         logger.log_info(f"処理済みデータが見つかりません。{year}年の生データから処理します...")
@@ -108,6 +116,37 @@ def run_yearly_backtest(year, max_positions=1):
         spread_pips=config.get('backtest', 'spread_pips')
     )
     
+    tokyo_london = TokyoLondonStrategy()
+    bollinger_rsi = BollingerRsiStrategy()
+    support_resistance = SupportResistanceStrategy()
+    support_resistance_improved = SupportResistanceStrategyImproved()
+    support_resistance_v2 = SupportResistanceStrategyV2()
+    
+    if 'support_resistance' in strategies and h1_data is not None and not h1_data.empty:
+        logger.log_info("複数時間足のサポート/レジスタンスレベルを統合中...")
+        enhanced_processor = EnhancedDataProcessor(pd.DataFrame())
+        year_data = enhanced_processor.merge_multi_timeframe_levels(year_data, h1_data)
+    
+    if 'tokyo_london' in strategies:
+        logger.log_info("東京レンジ・ロンドンブレイクアウト戦略を適用中...")
+        year_data = tokyo_london.generate_signals(year_data)
+    
+    if 'bollinger_rsi' in strategies:
+        logger.log_info("ボリンジャーバンド＋RSI逆張り戦略を適用中...")
+        year_data = bollinger_rsi.generate_signals(year_data)
+    
+    if 'support_resistance' in strategies:
+        logger.log_info("サポート/レジスタンス戦略を適用中...")
+        year_data = support_resistance.generate_signals(year_data)
+        
+    if 'support_resistance_improved' in strategies:
+        logger.log_info("改良版サポート/レジスタンス戦略を適用中...")
+        year_data = support_resistance_improved.generate_signals(year_data)
+        
+    if 'support_resistance_v2' in strategies:
+        logger.log_info("改良版サポート/レジスタンス戦略V2を適用中...")
+        year_data = support_resistance_v2.generate_signals(year_data)
+    
     logger.log_info("バックテスト実行中...")
     trade_history = backtest_engine.run()
     logger.log_info(f"バックテスト完了: {len(trade_history)} トレード")
@@ -152,11 +191,25 @@ def main():
     """
     2000年から2025年までの各年のバックテストを実行し、結果をまとめる
     """
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='FXトレードシステムのバックテスト')
+    parser.add_argument('--year', type=int, help='バックテスト対象の年（指定しない場合は2000-2025年）')
+    parser.add_argument('--strategies', type=str, default='tokyo_london,bollinger_rsi',
+                        help='使用する戦略（カンマ区切り、例: tokyo_london,bollinger_rsi,support_resistance,support_resistance_improved,support_resistance_v2）')
+    parser.add_argument('--max-positions', type=int, default=1, help='同時に保有できる最大ポジション数')
+    
+    args = parser.parse_args()
+    
+    strategy_list = args.strategies.split(',')
+    print(f"使用する戦略: {', '.join(strategy_list)}")
+    
     results = []
     
-    for year in range(2000, 2026):
+    if args.year:
+        year = args.year
         print(f"=== {year}年のバックテスト実行中 ===")
-        result = run_yearly_backtest(year, max_positions=1)
+        result = run_yearly_backtest(year, max_positions=args.max_positions, strategies=strategy_list)
         results.append(result)
         print(f"=== {year}年のバックテスト完了 ===")
         print(f"トレード数: {result['trades']}")
@@ -164,6 +217,18 @@ def main():
         print(f"勝率: {result['win_rate']:.2f}%")
         print(f"最終残高: {result['final_balance']}円")
         print()
+    else:
+        # 2000年から2025年までバックテスト
+        for year in range(2000, 2026):
+            print(f"=== {year}年のバックテスト実行中 ===")
+            result = run_yearly_backtest(year, max_positions=args.max_positions, strategies=strategy_list)
+            results.append(result)
+            print(f"=== {year}年のバックテスト完了 ===")
+            print(f"トレード数: {result['trades']}")
+            print(f"総利益: {result['profit']}円")
+            print(f"勝率: {result['win_rate']:.2f}%")
+            print(f"最終残高: {result['final_balance']}円")
+            print()
     
     results_df = pd.DataFrame(results)
     
