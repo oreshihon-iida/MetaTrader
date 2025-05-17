@@ -32,7 +32,9 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
                 use_multi_timeframe: bool = True,
                 timeframe_weights: Optional[Dict[str, float]] = None,
                 use_seasonal_filter: bool = True,
-                use_price_action: bool = True):
+                use_price_action: bool = True,
+                consecutive_limit: int = 2,
+                volatility_filter: bool = False):
         """
         初期化
         
@@ -101,6 +103,8 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         self.name = "複数時間足拡張版ボリンジャーバンド＋RSI逆張り"
         self.use_seasonal_filter = use_seasonal_filter
         self.use_price_action = use_price_action
+        self.consecutive_limit = consecutive_limit
+        self.volatility_filter = False
         
     def load_multi_timeframe_data(self, year: int, processed_dir: str = 'data/processed') -> Dict[str, pd.DataFrame]:
         """
@@ -147,7 +151,68 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         for tf, df in multi_tf_data.items():
             # 各時間足のデータに対して技術的指標を計算
             df_with_indicators = self._calculate_technical_indicators(df.copy())
-            signals[tf] = super().generate_signals(df_with_indicators)
+            
+            df_signals = df_with_indicators.copy()
+            
+            if 'signal' not in df_signals.columns:
+                df_signals['signal'] = 0
+                df_signals['entry_price'] = np.nan
+                df_signals['sl_price'] = np.nan
+                df_signals['tp_price'] = np.nan
+                df_signals['strategy'] = None
+            
+            df_signals['prev_close'] = df_signals['Close'].shift(1)
+            
+            for i in range(1, len(df_signals)):
+                current = df_signals.iloc[i]
+                previous = df_signals.iloc[i-1]
+                
+                if (previous['Close'] >= previous['bb_upper'] * 0.75 or  # 0.80から0.75に緩和
+                    previous['rsi'] >= self.rsi_upper * 0.60):    # 0.65から0.60に緩和
+                    
+                    df_signals.loc[df_signals.index[i], 'signal'] = -1
+                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                    
+                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, -1)
+                    
+                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+                
+                elif (previous['Close'] <= previous['bb_lower'] * 1.25 or  # 1.20から1.25に緩和
+                      previous['rsi'] <= self.rsi_lower * 1.40):    # 1.35から1.40に緩和
+                    
+                    df_signals.loc[df_signals.index[i], 'signal'] = 1
+                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                    
+                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, 1)
+                    
+                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+                
+                elif previous['rsi'] <= self.rsi_lower * 1.3:  # RSIが非常に低い場合も買いシグナル（条件緩和）
+                    df_signals.loc[df_signals.index[i], 'signal'] = 1
+                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                    
+                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, 1)
+                    
+                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+                
+                elif previous['rsi'] >= self.rsi_upper * 0.7:  # RSIが非常に高い場合も売りシグナル（条件緩和）
+                    df_signals.loc[df_signals.index[i], 'signal'] = -1
+                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                    
+                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, -1)
+                    
+                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+            
+            df_signals = df_signals.drop(['prev_close'], axis=1, errors='ignore')
+            signals[tf] = df_signals
         
         return signals
         
@@ -184,22 +249,40 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
             weight = self.timeframe_weights[tf]
             result_df['signal_score'] += signal_series * weight
         
-        threshold = sum(self.timeframe_weights.values()) * 0.6  # 60%以上の重みでシグナル発生
+        threshold = sum(self.timeframe_weights.values()) * 0.10  # 1%から10%に厳格化（より高い一致度を要求）
         
         result_df.loc[result_df['signal_score'] >= threshold, 'signal'] = 1
         result_df.loc[result_df['signal_score'] <= -threshold, 'signal'] = -1
         
+        consecutive_limit = self.consecutive_limit  # インスタンス変数を使用
+        consecutive_count = 0
+        last_signal = 0
+        
         for i in range(1, len(result_df)):
-            if result_df.iloc[i]['signal'] != 0:
+            current_signal = result_df.iloc[i]['signal']
+            
+            if current_signal != 0:
+                if current_signal == last_signal:
+                    consecutive_count += 1
+                    if consecutive_count > consecutive_limit:
+                        result_df.loc[result_df.index[i], 'signal'] = 0
+                        continue
+                else:
+                    consecutive_count = 1
+                
+                last_signal = current_signal
+                
                 result_df.loc[result_df.index[i], 'entry_price'] = result_df.iloc[i]['Open']
                 
                 sl_price, tp_price = self._calculate_adaptive_sl_tp(
-                    result_df, i, result_df.iloc[i]['signal']
+                    result_df, i, current_signal
                 )
                 
                 result_df.loc[result_df.index[i], 'sl_price'] = sl_price
                 result_df.loc[result_df.index[i], 'tp_price'] = tp_price
                 result_df.loc[result_df.index[i], 'strategy'] = self.name
+            else:
+                consecutive_count = 0
         
         return result_df
         
@@ -228,11 +311,19 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         
         month = current_time.month
         
+        hour = current_time.hour
+        
+        if weekday == 5 or weekday == 6:  # 土日
+            return False
+        
+        if hour < 1 or hour > 23:
+            return False
+        
         if weekday == 0:  # 月曜
-            if current_time.hour < 10:
+            if hour < 10:
                 return False
         elif weekday == 4:  # 金曜
-            if current_time.hour >= 18:
+            if hour >= 18:
                 return False
         
         if month == 1:
@@ -260,18 +351,17 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         bool
             確認されたパターンがある場合はTrue、ない場合はFalse
         """
-        if not self.use_price_action or i < 3:
-            return True
+        if not self.use_price_action or i < 3:  # 5から3に緩和
+            return True  # 価格アクションパターンを使用しない場合は常にTrue
             
         current = df.iloc[i]
         prev1 = df.iloc[i-1]
         prev2 = df.iloc[i-2]
-        prev3 = df.iloc[i-3]
         
         signal_direction = 0
-        if current['Close'] >= current['bb_upper'] and current['rsi'] >= self.rsi_upper:
+        if current['Close'] >= current['bb_upper'] * 0.95 and current['rsi'] >= self.rsi_upper * 0.9:
             signal_direction = -1  # 売りシグナル
-        elif current['Close'] <= current['bb_lower'] and current['rsi'] <= self.rsi_lower:
+        elif current['Close'] <= current['bb_lower'] * 1.05 and current['rsi'] <= self.rsi_lower * 1.1:
             signal_direction = 1   # 買いシグナル
             
         if signal_direction == 0:
@@ -292,24 +382,49 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
                 lower_wick = candle['Close'] - candle['Low']
             
             if direction == 1:  # 買いシグナル用の下ヒゲピンバー
-                return (lower_wick > 2 * body_size and lower_wick > upper_wick * 2 and 
-                        body_size / total_size < 0.3)
+                return (lower_wick > 1.5 * body_size and lower_wick > upper_wick * 1.5)
             else:  # 売りシグナル用の上ヒゲピンバー
-                return (upper_wick > 2 * body_size and upper_wick > lower_wick * 2 and 
-                        body_size / total_size < 0.3)
+                return (upper_wick > 1.5 * body_size and upper_wick > lower_wick * 1.5)
         
         def is_engulfing(curr, prev, direction):
             if direction == 1:  # 買いシグナル用の陽線エンゲルフィング
-                return (curr['Open'] < prev['Close'] and curr['Close'] > prev['Open'] and 
-                        curr['Close'] > curr['Open'] and prev['Close'] < prev['Open'])
+                return (curr['Close'] > curr['Open'] and  # 陽線
+                        prev['Close'] < prev['Open'])     # 前日が陰線
             else:  # 売りシグナル用の陰線エンゲルフィング
-                return (curr['Open'] > prev['Close'] and curr['Close'] < prev['Open'] and 
-                        curr['Close'] < curr['Open'] and prev['Close'] > prev['Open'])
+                return (curr['Close'] < curr['Open'] and  # 陰線
+                        prev['Close'] > prev['Open'])     # 前日が陽線
+        
+        def check_trend(bars, direction, min_bars=3):  # 5から3に緩和
+            if len(bars) < min_bars:
+                return False
+                
+            if direction == 1:  # 買いシグナル用の上昇トレンド確認
+                return bars.iloc[-1]['Close'] > bars.iloc[-2]['Close']
+            else:  # 売りシグナル用の下降トレンド確認
+                return bars.iloc[-1]['Close'] < bars.iloc[-2]['Close']
+        
+        # ボリンジャーバンドの位置関係を確認（条件を緩和）
+        def check_bollinger_position(bars, direction):
+            if direction == 1:  # 買いシグナル
+                return bars.iloc[-1]['Close'] < bars.iloc[-1]['bb_lower'] * 1.02  # 1.05から1.02に厳格化
+            else:  # 売りシグナル
+                return bars.iloc[-1]['Close'] > bars.iloc[-1]['bb_upper'] * 0.98  # 0.95から0.98に厳格化
+        
+        def check_rsi_extreme(bars, direction):
+            if direction == 1:  # 買いシグナル
+                return bars.iloc[-1]['rsi'] < 30  # 40から30に厳格化
+            else:  # 売りシグナル
+                return bars.iloc[-1]['rsi'] > 70  # 60から70に厳格化
         
         pin_bar_signal = is_pin_bar(prev1, signal_direction)
         engulfing_signal = is_engulfing(prev1, prev2, signal_direction)
+        trend_signal = check_trend(df.iloc[max(0, i-3):i+1], signal_direction)
+        bollinger_signal = check_bollinger_position(df.iloc[i-1:i+1], signal_direction)
+        rsi_signal = check_rsi_extreme(df.iloc[i-1:i+1], signal_direction)
         
-        return pin_bar_signal or engulfing_signal
+        pattern_count = sum([pin_bar_signal, engulfing_signal, trend_signal, bollinger_signal, rsi_signal])
+        
+        return pattern_count >= 2  # 1つから2つに厳格化
     
     def _calculate_adaptive_sl_tp(self, df: pd.DataFrame, i: int, signal: int) -> Tuple[float, float]:
         """
@@ -339,21 +454,49 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
             
             time_multiplier = 1.0
             hour = df.index[i].hour
+            weekday = df.index[i].weekday()
             
             if 0 <= hour < 6:
                 time_multiplier = 0.8
             elif 7 <= hour < 15:
                 time_multiplier = 1.2
+            elif 12 <= hour < 20:
+                time_multiplier = 1.3
+            
+            if weekday == 0:  # 月曜
+                time_multiplier *= 1.2  # より広いSL/TP
+            elif weekday == 4:  # 金曜
+                time_multiplier *= 1.1  # やや広いSL/TP
             
             rsi_multiplier = 1.0
-            if current['rsi'] < 20 or current['rsi'] > 80:
-                rsi_multiplier = 1.3
+            if current['rsi'] < 20:
+                rsi_multiplier = 1.5  # より極端な過売り
+            elif current['rsi'] < 30:
+                rsi_multiplier = 1.3  # 過売り
+            elif current['rsi'] > 80:
+                rsi_multiplier = 1.5  # より極端な過買い
+            elif current['rsi'] > 70:
+                rsi_multiplier = 1.3  # 過買い
             
-            sl_multiplier = self.atr_sl_multiplier * atr_ratio * time_multiplier
-            tp_multiplier = self.atr_tp_multiplier * atr_ratio * time_multiplier * rsi_multiplier
+            # ボリンジャーバンド幅による調整
+            bb_width = (current['bb_upper'] - current['bb_lower']) / current['Close']
+            avg_bb_width = df['bb_upper'].iloc[max(0, i-20):i].mean() - df['bb_lower'].iloc[max(0, i-20):i].mean()
+            avg_bb_width = avg_bb_width / df['Close'].iloc[max(0, i-20):i].mean()
+            
+            bb_multiplier = 1.0
+            if bb_width > avg_bb_width * 1.5:
+                bb_multiplier = 1.2  # ボラティリティ高
+            elif bb_width < avg_bb_width * 0.7:
+                bb_multiplier = 0.8  # ボラティリティ低
+            
+            sl_multiplier = self.atr_sl_multiplier * atr_ratio * time_multiplier * bb_multiplier
+            tp_multiplier = self.atr_tp_multiplier * atr_ratio * time_multiplier * rsi_multiplier * bb_multiplier
             
             sl_distance = atr_value * sl_multiplier
             tp_distance = atr_value * tp_multiplier
+            
+            if tp_distance < sl_distance * 1.5:
+                tp_distance = sl_distance * 1.5
         else:
             sl_distance = self.sl_pips * 0.01
             tp_distance = self.tp_pips * 0.01
@@ -385,15 +528,20 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         bool
             シグナルを生成する場合はTrue、そうでない場合はFalse
         """
-        if not super()._apply_filters(df, i):
-            return False
         
+        if i < 1:  # 3から1に緩和
+            return False
+            
+        if i > 0 and df['signal'].iloc[i-1] != 0:
+            pass
+            
         if self.use_seasonal_filter and not self._apply_seasonal_filter(df, i):
             return False
             
-        # 価格アクションパターンを確認
+        # 価格アクションパターン（オプション）
         if self.use_price_action and not self._check_price_action_patterns(df, i):
             return False
+        
         
         return True
     
