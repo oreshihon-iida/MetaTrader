@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, Optional
+import os
+from typing import Dict, Any, Optional, List, Tuple
 from ta.volatility import BollingerBands
 from ta.momentum import RSIIndicator
 
@@ -87,14 +88,21 @@ class DataProcessor:
         df_jst = df.copy()
         df_jst.index = df_jst.index + pd.Timedelta(hours=9)
         
-        df_jst['date'] = df_jst.index.date
+        if isinstance(df_jst.index, pd.DatetimeIndex):
+            df_jst['date'] = df_jst.index.strftime('%Y-%m-%d')
+        else:
+            df_jst['date'] = pd.to_datetime(df_jst.index).strftime('%Y-%m-%d')
         
         tokyo_session = df_jst.between_time('09:00', '15:00')
         
         daily_highs = tokyo_session.groupby('date')['High'].max()
         daily_lows = tokyo_session.groupby('date')['Low'].min()
         
-        df['date'] = df.index.date
+        if isinstance(df.index, pd.DatetimeIndex):
+            df['date'] = df.index.strftime('%Y-%m-%d')
+        else:
+            df['date'] = pd.to_datetime(df.index).strftime('%Y-%m-%d')
+        
         df = df.merge(
             pd.DataFrame({'tokyo_high': daily_highs, 'tokyo_low': daily_lows}),
             left_on='date',
