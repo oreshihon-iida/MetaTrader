@@ -75,7 +75,7 @@ def main():
     raw_dir = config.get('data', 'raw_dir')
     processed_dir = config.get('data', 'processed_dir')
     
-    timeframes = ['15min', '1H']
+    timeframes = ['15min', '1H', '4H']
     
     years = list(range(2000, 2026))
     

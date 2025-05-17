@@ -1,0 +1,2 @@
+year,strategy,trades,profit,win_rate,profit_factor,max_drawdown,initial_balance,final_balance
+2020,bollinger_rsi_enhanced_mt,22,20.61892857142766,72.72727272727273,4.549960031974107,0.002885555868698757,200000.0,200020.61892857144
