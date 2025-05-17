@@ -6,6 +6,7 @@ from ..strategies.tokyo_london import TokyoLondonStrategy
 from ..strategies.bollinger_rsi import BollingerRsiStrategy
 from ..strategies.support_resistance_strategy import SupportResistanceStrategy
 from ..strategies.bollinger_rsi_enhanced import BollingerRsiEnhancedStrategy
+from ..strategies.bollinger_rsi_enhanced_mt import BollingerRsiEnhancedMTStrategy
 from .position import Position, PositionStatus
 
 class BacktestEngine:
@@ -63,6 +64,7 @@ class BacktestEngine:
         bollinger_rsi = BollingerRsiStrategy()
         support_resistance = SupportResistanceStrategy()
         bollinger_rsi_enhanced = BollingerRsiEnhancedStrategy()
+        bollinger_rsi_enhanced_mt = BollingerRsiEnhancedMTStrategy()
         
         from ..strategies.support_resistance_strategy_improved import SupportResistanceStrategy as SupportResistanceStrategyImproved
         from ..strategies.support_resistance_strategy_v2 import SupportResistanceStrategyV2
@@ -88,6 +90,8 @@ class BacktestEngine:
                     self.data = support_resistance_v2.generate_signals(self.data)
                 elif strategy == 'bollinger_rsi_enhanced':
                     self.data = bollinger_rsi_enhanced.generate_signals(self.data)
+                elif strategy == 'bollinger_rsi_enhanced_mt':
+                    self.data = bollinger_rsi_enhanced_mt.generate_signals(self.data, year=int(self.data.index[0].year))
 
         for i in range(len(self.data)):
             current_time = self.data.index[i]

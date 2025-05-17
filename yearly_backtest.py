@@ -10,6 +10,7 @@ from src.strategies.support_resistance_strategy import SupportResistanceStrategy
 from src.strategies.support_resistance_strategy_improved import SupportResistanceStrategy as SupportResistanceStrategyImproved
 from src.strategies.support_resistance_strategy_v2 import SupportResistanceStrategyV2
 from src.strategies.bollinger_rsi_enhanced import BollingerRsiEnhancedStrategy
+from src.strategies.bollinger_rsi_enhanced_mt import BollingerRsiEnhancedMTStrategy
 from src.backtest.backtest_engine import BacktestEngine
 from src.utils.logger import Logger
 from src.utils.config import Config
@@ -123,6 +124,7 @@ def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'boll
     support_resistance_improved = SupportResistanceStrategyImproved()
     support_resistance_v2 = SupportResistanceStrategyV2()
     bollinger_rsi_enhanced = BollingerRsiEnhancedStrategy()
+    bollinger_rsi_enhanced_mt = BollingerRsiEnhancedMTStrategy()
     
     if 'support_resistance' in strategies and h1_data is not None and not h1_data.empty:
         logger.log_info("複数時間足のサポート/レジスタンスレベルを統合中...")
@@ -153,6 +155,10 @@ def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'boll
         logger.log_info("拡張版ボリンジャーバンド＋RSI逆張り戦略を適用中...")
         year_data = bollinger_rsi_enhanced.generate_signals(year_data)
     
+    if 'bollinger_rsi_enhanced_mt' in strategies:
+        logger.log_info("複数時間足拡張版ボリンジャーバンド＋RSI逆張り戦略を適用中...")
+        year_data = bollinger_rsi_enhanced_mt.generate_signals(year_data, year)
+    
     logger.log_info("バックテスト実行中...")
     strategy_list = []
     if 'tokyo_london' in strategies:
@@ -167,6 +173,8 @@ def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'boll
         strategy_list.append('support_resistance_v2')
     if 'bollinger_rsi_enhanced' in strategies:
         strategy_list.append('bollinger_rsi_enhanced')
+    if 'bollinger_rsi_enhanced_mt' in strategies:
+        strategy_list.append('bollinger_rsi_enhanced_mt')
         
     trade_history = backtest_engine.run(strategy_list)
     logger.log_info(f"バックテスト完了: {len(trade_history)} トレード")
