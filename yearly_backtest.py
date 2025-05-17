@@ -9,6 +9,7 @@ from src.strategies.bollinger_rsi import BollingerRsiStrategy
 from src.strategies.support_resistance_strategy import SupportResistanceStrategy
 from src.strategies.support_resistance_strategy_improved import SupportResistanceStrategy as SupportResistanceStrategyImproved
 from src.strategies.support_resistance_strategy_v2 import SupportResistanceStrategyV2
+from src.strategies.bollinger_rsi_enhanced import BollingerRsiEnhancedStrategy
 from src.backtest.backtest_engine import BacktestEngine
 from src.utils.logger import Logger
 from src.utils.config import Config
@@ -121,6 +122,7 @@ def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'boll
     support_resistance = SupportResistanceStrategy()
     support_resistance_improved = SupportResistanceStrategyImproved()
     support_resistance_v2 = SupportResistanceStrategyV2()
+    bollinger_rsi_enhanced = BollingerRsiEnhancedStrategy()
     
     if 'support_resistance' in strategies and h1_data is not None and not h1_data.empty:
         logger.log_info("複数時間足のサポート/レジスタンスレベルを統合中...")
@@ -146,6 +148,10 @@ def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'boll
     if 'support_resistance_v2' in strategies:
         logger.log_info("改良版サポート/レジスタンス戦略V2を適用中...")
         year_data = support_resistance_v2.generate_signals(year_data)
+        
+    if 'bollinger_rsi_enhanced' in strategies:
+        logger.log_info("拡張版ボリンジャーバンド＋RSI逆張り戦略を適用中...")
+        year_data = bollinger_rsi_enhanced.generate_signals(year_data)
     
     logger.log_info("バックテスト実行中...")
     strategy_list = []
@@ -159,6 +165,8 @@ def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'boll
         strategy_list.append('support_resistance_improved')
     if 'support_resistance_v2' in strategies:
         strategy_list.append('support_resistance_v2')
+    if 'bollinger_rsi_enhanced' in strategies:
+        strategy_list.append('bollinger_rsi_enhanced')
         
     trade_history = backtest_engine.run(strategy_list)
     logger.log_info(f"バックテスト完了: {len(trade_history)} トレード")
@@ -208,7 +216,7 @@ def main():
     parser = argparse.ArgumentParser(description='FXトレードシステムのバックテスト')
     parser.add_argument('--year', type=int, help='バックテスト対象の年（指定しない場合は2000-2025年）')
     parser.add_argument('--strategies', type=str, default='tokyo_london,bollinger_rsi',
-                        help='使用する戦略（カンマ区切り、例: tokyo_london,bollinger_rsi,support_resistance,support_resistance_improved,support_resistance_v2）')
+                        help='使用する戦略（カンマ区切り、例: tokyo_london,bollinger_rsi,bollinger_rsi_enhanced,support_resistance,support_resistance_improved,support_resistance_v2）')
     parser.add_argument('--max-positions', type=int, default=1, help='同時に保有できる最大ポジション数')
     
     args = parser.parse_args()
