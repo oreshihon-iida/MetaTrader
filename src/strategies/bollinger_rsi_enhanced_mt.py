@@ -30,7 +30,9 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
                 vol_filter: bool = True,
                 time_filter: bool = True,
                 use_multi_timeframe: bool = True,
-                timeframe_weights: Dict[str, float] = None):
+                timeframe_weights: Optional[Dict[str, float]] = None,
+                use_seasonal_filter: bool = True,
+                use_price_action: bool = True):
         """
         初期化
         
@@ -68,6 +70,10 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
             複数時間足分析を使用するかどうか
         timeframe_weights : Dict[str, float], optional
             各時間足の重みづけ（例: {'15min': 1.0, '1H': 2.0, '4H': 3.0}）
+        use_seasonal_filter : bool, default True
+            季節性分析に基づくフィルターを使用するかどうか
+        use_price_action : bool, default True
+            価格アクションパターンを使用するかどうか
         """
         super().__init__(
             bb_window=bb_window,
@@ -93,6 +99,8 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
             '4H': 3.0
         }
         self.name = "複数時間足拡張版ボリンジャーバンド＋RSI逆張り"
+        self.use_seasonal_filter = use_seasonal_filter
+        self.use_price_action = use_price_action
         
     def load_multi_timeframe_data(self, year: int, processed_dir: str = 'data/processed') -> Dict[str, pd.DataFrame]:
         """
@@ -195,6 +203,200 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         
         return result_df
         
+    def _apply_seasonal_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        季節性分析に基づくフィルターを適用する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            シグナルを生成する場合はTrue、そうでない場合はFalse
+        """
+        if not self.use_seasonal_filter:
+            return True
+            
+        current_time = df.index[i]
+        
+        weekday = current_time.weekday()
+        
+        month = current_time.month
+        
+        if weekday == 0:  # 月曜
+            if current_time.hour < 10:
+                return False
+        elif weekday == 4:  # 金曜
+            if current_time.hour >= 18:
+                return False
+        
+        if month == 1:
+            if current_time.day < 10:
+                return False
+        elif month == 12:
+            if current_time.day > 20:
+                return False
+        
+        return True
+    
+    def _check_price_action_patterns(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        価格アクションパターンをチェックする
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            確認されたパターンがある場合はTrue、ない場合はFalse
+        """
+        if not self.use_price_action or i < 3:
+            return True
+            
+        current = df.iloc[i]
+        prev1 = df.iloc[i-1]
+        prev2 = df.iloc[i-2]
+        prev3 = df.iloc[i-3]
+        
+        signal_direction = 0
+        if current['Close'] >= current['bb_upper'] and current['rsi'] >= self.rsi_upper:
+            signal_direction = -1  # 売りシグナル
+        elif current['Close'] <= current['bb_lower'] and current['rsi'] <= self.rsi_lower:
+            signal_direction = 1   # 買いシグナル
+            
+        if signal_direction == 0:
+            return False
+            
+        def is_pin_bar(candle, direction):
+            body_size = abs(candle['Close'] - candle['Open'])
+            total_size = candle['High'] - candle['Low']
+            
+            if total_size == 0:
+                return False
+                
+            if candle['Close'] >= candle['Open']:  # 陽線
+                upper_wick = candle['High'] - candle['Close']
+                lower_wick = candle['Open'] - candle['Low']
+            else:  # 陰線
+                upper_wick = candle['High'] - candle['Open']
+                lower_wick = candle['Close'] - candle['Low']
+            
+            if direction == 1:  # 買いシグナル用の下ヒゲピンバー
+                return (lower_wick > 2 * body_size and lower_wick > upper_wick * 2 and 
+                        body_size / total_size < 0.3)
+            else:  # 売りシグナル用の上ヒゲピンバー
+                return (upper_wick > 2 * body_size and upper_wick > lower_wick * 2 and 
+                        body_size / total_size < 0.3)
+        
+        def is_engulfing(curr, prev, direction):
+            if direction == 1:  # 買いシグナル用の陽線エンゲルフィング
+                return (curr['Open'] < prev['Close'] and curr['Close'] > prev['Open'] and 
+                        curr['Close'] > curr['Open'] and prev['Close'] < prev['Open'])
+            else:  # 売りシグナル用の陰線エンゲルフィング
+                return (curr['Open'] > prev['Close'] and curr['Close'] < prev['Open'] and 
+                        curr['Close'] < curr['Open'] and prev['Close'] > prev['Open'])
+        
+        pin_bar_signal = is_pin_bar(prev1, signal_direction)
+        engulfing_signal = is_engulfing(prev1, prev2, signal_direction)
+        
+        return pin_bar_signal or engulfing_signal
+    
+    def _calculate_adaptive_sl_tp(self, df: pd.DataFrame, i: int, signal: int) -> Tuple[float, float]:
+        """
+        適応型の損切り・利確レベルを計算する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+        signal : int
+            シグナルの方向（1: 買い、-1: 売り）
+            
+        Returns
+        -------
+        Tuple[float, float]
+            (損切りレベル, 利確レベル)
+        """
+        current = df.iloc[i]
+        
+        if self.use_adaptive_params:
+            atr_value = current['atr']
+            
+            recent_atr_avg = df['atr'].iloc[max(0, i-20):i+1].mean()
+            atr_ratio = atr_value / recent_atr_avg if recent_atr_avg > 0 else 1.0
+            
+            time_multiplier = 1.0
+            hour = df.index[i].hour
+            
+            if 0 <= hour < 6:
+                time_multiplier = 0.8
+            elif 7 <= hour < 15:
+                time_multiplier = 1.2
+            
+            rsi_multiplier = 1.0
+            if current['rsi'] < 20 or current['rsi'] > 80:
+                rsi_multiplier = 1.3
+            
+            sl_multiplier = self.atr_sl_multiplier * atr_ratio * time_multiplier
+            tp_multiplier = self.atr_tp_multiplier * atr_ratio * time_multiplier * rsi_multiplier
+            
+            sl_distance = atr_value * sl_multiplier
+            tp_distance = atr_value * tp_multiplier
+        else:
+            sl_distance = self.sl_pips * 0.01
+            tp_distance = self.tp_pips * 0.01
+        
+        entry_price = current['Open']
+        
+        if signal == 1:  # 買いシグナル
+            sl_price = entry_price - sl_distance
+            tp_price = entry_price + tp_distance
+        else:  # 売りシグナル
+            sl_price = entry_price + sl_distance
+            tp_price = entry_price - tp_distance
+        
+        return sl_price, tp_price
+    
+    def _apply_filters(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        各種フィルターを適用し、シグナルを生成するかどうかを判断する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            シグナルを生成する場合はTrue、そうでない場合はFalse
+        """
+        if not super()._apply_filters(df, i):
+            return False
+        
+        if self.use_seasonal_filter and not self._apply_seasonal_filter(df, i):
+            return False
+            
+        # 価格アクションパターンを確認
+        if self.use_price_action and not self._check_price_action_patterns(df, i):
+            return False
+        
+        return True
+    
     def generate_signals(self, df: pd.DataFrame, year: int = 2020, 
                        processed_dir: str = 'data/processed') -> pd.DataFrame:
         """
