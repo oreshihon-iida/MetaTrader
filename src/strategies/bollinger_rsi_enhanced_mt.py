@@ -214,16 +214,38 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         pd.DataFrame
             シグナルが追加されたDataFrame
         """
+        # 複数時間足分析を使用しない場合は親クラスの処理を使用
         if not self.use_multi_timeframe:
             return super().generate_signals(df)
+        
+        available_timeframes = {}
+        data_processor = DataProcessor(pd.DataFrame())
+        
+        for tf in self.timeframe_weights.keys():
+            try:
+                tf_data = data_processor.load_processed_data(tf, year, processed_dir)
+                if not tf_data.empty:
+                    available_timeframes[tf] = self.timeframe_weights[tf]
+            except Exception:
+                continue
+        
+        if not available_timeframes or '15min' not in available_timeframes:
+            return super().generate_signals(df)
+        
+        temp_weights = self.timeframe_weights.copy()
+        self.timeframe_weights = available_timeframes
         
         multi_tf_data = self.load_multi_timeframe_data(year, processed_dir)
         
         if len(multi_tf_data) < 2 or '15min' not in multi_tf_data:
+            self.timeframe_weights = temp_weights  # 元の重みに戻す
             return super().generate_signals(df)
         
         signals = self.analyze_timeframe_signals(multi_tf_data)
         
+        # 複数時間足のシグナルを統合
         result_df = self.merge_timeframe_signals(df, signals)
+        
+        self.timeframe_weights = temp_weights
         
         return result_df
