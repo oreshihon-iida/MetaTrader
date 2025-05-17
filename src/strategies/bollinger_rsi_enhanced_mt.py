@@ -249,7 +249,7 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
             weight = self.timeframe_weights[tf]
             result_df['signal_score'] += signal_series * weight
         
-        threshold = sum(self.timeframe_weights.values()) * 0.20  # 信号閾値を20%に緩和（より多くの取引機会を生成）
+        threshold = sum(self.timeframe_weights.values()) * 0.10  # 信号閾値を10%に緩和（より多くの取引機会を生成）
         
         result_df.loc[result_df['signal_score'] >= threshold, 'signal'] = 1
         result_df.loc[result_df['signal_score'] <= -threshold, 'signal'] = -1
