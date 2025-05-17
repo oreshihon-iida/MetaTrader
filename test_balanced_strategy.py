@@ -46,13 +46,13 @@ strategy = BollingerRsiEnhancedMTStrategy(
         '1H': 2.0,
         '4H': 3.0
     },
-    rsi_upper=75,                  # RSI上限を中間値に設定（70と85の間）
-    rsi_lower=25,                  # RSI下限を中間値に設定（30と15の間）
+    rsi_upper=70,                  # RSI上限を元の値に戻す（より多くの取引機会を生成）
+    rsi_lower=30,                  # RSI下限を元の値に戻す（より多くの取引機会を生成）
     bb_dev=2.0,                    # ボリンジャーバンド偏差を元に戻す
     sl_pips=10.0,                  # ストップロスを調整（元の値より大きく）
     tp_pips=30.0,                  # テイクプロフィットを調整（3.0倍のリスクリワード比）
-    consecutive_limit=2,           # 連続シグナル制限を中間値に設定
-    volatility_filter=True         # ボラティリティフィルターを有効化
+    consecutive_limit=3,           # 連続シグナル制限を元の値に戻す
+    volatility_filter=False        # ボラティリティフィルターを無効化（より多くの取引機会を生成）
 )
 
 def month_filter(df):
@@ -76,7 +76,8 @@ def month_filter(df):
 logger.log_info("シグナル生成開始")
 signals_df = strategy.generate_signals(df_15min, years[0], data_dir)
 
-signals_df = month_filter(signals_df)
+# 月別フィルターを無効化（より多くの取引機会を生成）
+# signals_df = month_filter(signals_df)
 
 logger.log_info(f"シグナル生成完了: {len(signals_df)}行")
 

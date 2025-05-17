@@ -40,7 +40,7 @@ class Visualizer:
             return
             
         results = results.copy()
-        results['entry_time'] = pd.to_datetime(results['entry_time'])
+        results['entry_time'] = pd.to_datetime(results['エントリー時間']) if 'エントリー時間' in results.columns else pd.to_datetime(results['entry_time'])
         results['cumulative_profit'] = results['profit_jpy'].cumsum()
         results['equity'] = initial_balance + results['cumulative_profit']
         
@@ -71,7 +71,7 @@ class Visualizer:
             return
             
         results = results.copy()
-        results['entry_time'] = pd.to_datetime(results['entry_time'])
+        results['entry_time'] = pd.to_datetime(results['エントリー時間']) if 'エントリー時間' in results.columns else pd.to_datetime(results['entry_time'])
         results['cumulative_profit'] = results['profit_jpy'].cumsum()
         results['equity'] = initial_balance + results['cumulative_profit']
         results['peak'] = results['equity'].cummax()
@@ -101,7 +101,7 @@ class Visualizer:
             return
             
         results = results.copy()
-        results['entry_time'] = pd.to_datetime(results['entry_time'])
+        results['entry_time'] = pd.to_datetime(results['エントリー時間']) if 'エントリー時間' in results.columns else pd.to_datetime(results['entry_time'])
         results['month'] = results['entry_time'].dt.strftime('%Y-%m')
         
         monthly_performance = results.groupby('month').agg(
@@ -174,7 +174,7 @@ class Visualizer:
                 continue
                 
             results = results.copy()
-            results['entry_time'] = pd.to_datetime(results['entry_time'])
+            results['entry_time'] = pd.to_datetime(results['エントリー時間']) if 'エントリー時間' in results.columns else pd.to_datetime(results['entry_time'])
             results = results.sort_values('entry_time')
             results['cumulative_profit'] = results['profit_jpy'].cumsum()
             results['equity'] = initial_balance + results['cumulative_profit']
