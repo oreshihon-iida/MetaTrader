@@ -148,7 +148,19 @@ def run_yearly_backtest(year, max_positions=1, strategies=['tokyo_london', 'boll
         year_data = support_resistance_v2.generate_signals(year_data)
     
     logger.log_info("バックテスト実行中...")
-    trade_history = backtest_engine.run()
+    strategy_list = []
+    if 'tokyo_london' in strategies:
+        strategy_list.append('tokyo_london')
+    if 'bollinger_rsi' in strategies:
+        strategy_list.append('bollinger_rsi')
+    if 'support_resistance' in strategies:
+        strategy_list.append('support_resistance')
+    if 'support_resistance_improved' in strategies:
+        strategy_list.append('support_resistance_improved')
+    if 'support_resistance_v2' in strategies:
+        strategy_list.append('support_resistance_v2')
+        
+    trade_history = backtest_engine.run(strategy_list)
     logger.log_info(f"バックテスト完了: {len(trade_history)} トレード")
     
     logger.log_trade_history(trade_history)

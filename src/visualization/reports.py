@@ -182,8 +182,8 @@ class ReportGenerator:
             f.write("## 戦略別パフォーマンス\n\n")
             
             if '戦略別勝率' in metrics and metrics['戦略別勝率'] and '戦略別統計' in metrics and metrics['戦略別統計']:
-                f.write("| 戦略 | トレード数 | 勝率 (%) | 総利益 (円) | 平均利益 (円/トレード) |\n")
-                f.write("|------|------------|----------|------------|------------------------|\n")
+                f.write("| 戦略 | トレード数 | 勝率 (%) | 総利益 (円) | 平均利益 (円/トレード) | プロフィットファクター |\n")
+                f.write("|------|------------|----------|------------|------------------------|------------------------|\n")
                 
                 for strategy, win_rate in metrics['戦略別勝率'].items():
                     if ('損益(円)', 'count') in metrics['戦略別統計'] and strategy in metrics['戦略別統計'][('損益(円)', 'count')]:
@@ -191,7 +191,12 @@ class ReportGenerator:
                         strategy_total_profit = metrics['戦略別統計'][('損益(円)', 'sum')][strategy]
                         strategy_avg_profit = metrics['戦略別統計'][('損益(円)', 'mean')][strategy]
                         
-                        f.write(f"| {strategy} | {strategy_trades} | {win_rate:.2f} | {strategy_total_profit:,.0f} | {strategy_avg_profit:,.0f} |\n")
+                        strategy_df = trade_history[trade_history['戦略'] == strategy]
+                        winning_trades = strategy_df[strategy_df['損益(円)'] > 0]['損益(円)'].sum()
+                        losing_trades = abs(strategy_df[strategy_df['損益(円)'] < 0]['損益(円)'].sum())
+                        profit_factor = winning_trades / losing_trades if losing_trades > 0 else float('inf')
+                        
+                        f.write(f"| {strategy} | {strategy_trades} | {win_rate:.2f} | {strategy_total_profit:,.0f} | {strategy_avg_profit:,.0f} | {profit_factor:.2f} |\n")
             else:
                 f.write("データなし\n")
             

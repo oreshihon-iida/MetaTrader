@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple
 import datetime
 from ..strategies.tokyo_london import TokyoLondonStrategy
 from ..strategies.bollinger_rsi import BollingerRsiStrategy
+from ..strategies.support_resistance_strategy import SupportResistanceStrategy
 from .position import Position, PositionStatus
 
 class BacktestEngine:
@@ -43,9 +44,14 @@ class BacktestEngine:
         self.equity_curve = []
         self.trade_history = []
 
-    def run(self) -> pd.DataFrame:
+    def run(self, strategies=None) -> pd.DataFrame:
         """
         バックテストを実行する
+
+        Parameters
+        ----------
+        strategies : list, default None
+            適用する戦略のリスト。Noneの場合はすべての戦略を適用する
 
         Returns
         -------
@@ -54,9 +60,30 @@ class BacktestEngine:
         """
         tokyo_london = TokyoLondonStrategy()
         bollinger_rsi = BollingerRsiStrategy()
-
-        self.data = bollinger_rsi.generate_signals(self.data)
-        self.data = tokyo_london.generate_signals(self.data)
+        support_resistance = SupportResistanceStrategy()
+        
+        from ..strategies.support_resistance_strategy_improved import SupportResistanceStrategy as SupportResistanceStrategyImproved
+        from ..strategies.support_resistance_strategy_v2 import SupportResistanceStrategyV2
+        
+        support_resistance_improved = SupportResistanceStrategyImproved()
+        support_resistance_v2 = SupportResistanceStrategyV2()
+        
+        if strategies is None or len(strategies) == 0:
+            self.data = bollinger_rsi.generate_signals(self.data)
+            self.data = tokyo_london.generate_signals(self.data)
+            self.data = support_resistance.generate_signals(self.data)
+        else:
+            for strategy in strategies:
+                if strategy == 'tokyo_london':
+                    self.data = tokyo_london.generate_signals(self.data)
+                elif strategy == 'bollinger_rsi':
+                    self.data = bollinger_rsi.generate_signals(self.data)
+                elif strategy == 'support_resistance':
+                    self.data = support_resistance.generate_signals(self.data)
+                elif strategy == 'support_resistance_improved':
+                    self.data = support_resistance_improved.generate_signals(self.data)
+                elif strategy == 'support_resistance_v2':
+                    self.data = support_resistance_v2.generate_signals(self.data)
 
         for i in range(len(self.data)):
             current_time = self.data.index[i]

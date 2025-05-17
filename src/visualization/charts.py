@@ -227,7 +227,17 @@ class ChartGenerator:
         
         strategy_stats['勝率'] = trade_history[trade_history['損益(円)'] > 0].groupby('戦略').size() / strategy_stats[('損益(円)', 'count')] * 100
         
-        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+        profit_factors = []
+        for strategy in strategy_stats.index:
+            strategy_df = trade_history[trade_history['戦略'] == strategy]
+            winning_trades = strategy_df[strategy_df['損益(円)'] > 0]['損益(円)'].sum()
+            losing_trades = abs(strategy_df[strategy_df['損益(円)'] < 0]['損益(円)'].sum())
+            profit_factor = winning_trades / losing_trades if losing_trades > 0 else float('inf')
+            profit_factors.append(profit_factor)
+        
+        strategy_stats['プロフィットファクター'] = profit_factors
+        
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         
         axes[0, 0].bar(strategy_stats.index, strategy_stats[('損益(円)', 'sum')])
         axes[0, 0].set_title('戦略別総利益（円）')
@@ -237,13 +247,30 @@ class ChartGenerator:
         axes[0, 1].set_title('戦略別平均利益（円/トレード）')
         axes[0, 1].grid(True, axis='y')
         
-        axes[1, 0].bar(strategy_stats.index, strategy_stats[('損益(円)', 'count')])
-        axes[1, 0].set_title('戦略別トレード回数')
+        axes[0, 2].bar(strategy_stats.index, strategy_stats[('損益(円)', 'count')])
+        axes[0, 2].set_title('戦略別トレード回数')
+        axes[0, 2].grid(True, axis='y')
+        
+        axes[1, 0].bar(strategy_stats.index, strategy_stats['勝率'])
+        axes[1, 0].set_title('戦略別勝率（%）')
         axes[1, 0].grid(True, axis='y')
         
-        axes[1, 1].bar(strategy_stats.index, strategy_stats['勝率'])
-        axes[1, 1].set_title('戦略別勝率（%）')
+        axes[1, 1].bar(strategy_stats.index, strategy_stats['プロフィットファクター'])
+        axes[1, 1].set_title('戦略別プロフィットファクター')
         axes[1, 1].grid(True, axis='y')
+        
+        if isinstance(trade_history.index, pd.DatetimeIndex):
+            for i, strategy in enumerate(strategy_stats.index):
+                if i < len(strategy_stats.index) and i < 6:  # 最大6戦略まで表示
+                    strategy_df = trade_history[trade_history['戦略'] == strategy]
+                    strategy_df['月'] = strategy_df.index.to_period('M')
+                    monthly = strategy_df.groupby('月')['損益(円)'].sum()
+                    if not monthly.empty:
+                        axes[1, 2].plot(range(len(monthly)), monthly.values, label=strategy, marker='o')
+                    
+            axes[1, 2].set_title('月別戦略パフォーマンス')
+            axes[1, 2].grid(True)
+            axes[1, 2].legend()
         
         if save:
             plt.tight_layout()
