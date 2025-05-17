@@ -40,19 +40,19 @@ logger.log_info(f"結合後の15分足データ: {len(df_15min)}行")
 
 strategy = BollingerRsiEnhancedMTStrategy(
     use_seasonal_filter=True,      # 季節性フィルターを有効化
-    use_price_action=True,         # 価格アクションパターンを有効化
+    use_price_action=False,        # 価格アクションパターンを無効化（より多くの取引機会を生成）
     timeframe_weights={            # すべての時間足を使用（オリジナルに近い）
         '15min': 1.0,
         '1H': 2.0,
         '4H': 3.0
     },
-    rsi_upper=70,                  # RSI上限を元の値に戻す
-    rsi_lower=30,                  # RSI下限を元の値に戻す
+    rsi_upper=72,                  # RSI上限を少し緩和
+    rsi_lower=28,                  # RSI下限を少し緩和
     bb_dev=2.0,                    # ボリンジャーバンド偏差を維持
     sl_pips=10.0,                  # ストップロスを維持
-    tp_pips=30.0,                  # テイクプロフィットを調整（3.0倍のリスクリワード比）
-    consecutive_limit=2,           # 連続シグナル制限を中間値に設定
-    volatility_filter=True         # ボラティリティフィルターを有効化
+    tp_pips=30.0,                  # テイクプロフィットを維持（3.0倍のリスクリワード比）
+    consecutive_limit=3,           # 連続シグナル制限を緩和
+    volatility_filter=False        # ボラティリティフィルターを無効化（より多くの取引機会を生成）
 )
 
 def month_filter(df):
@@ -170,15 +170,15 @@ if not results.empty:
         f.write("## 戦略パラメータ\n\n")
         f.write("- 時間足: 15分足 + 1時間足 + 4時間足\n")
         f.write("- 時間足の重み付け: 15min: 1.0, 1H: 2.0, 4H: 3.0\n")
-        f.write("- RSI上限: 70\n")
-        f.write("- RSI下限: 30\n")
+        f.write("- RSI上限: 72\n")
+        f.write("- RSI下限: 28\n")
         f.write("- ボリンジャーバンド偏差: 2.0\n")
         f.write("- ストップロス: 10.0 pips\n")
         f.write("- テイクプロフィット: 30.0 pips\n")
-        f.write("- 連続シグナル制限: 2\n")
+        f.write("- 連続シグナル制限: 3\n")
         f.write("- 季節性フィルター: 有効\n")
-        f.write("- 価格アクションパターン: 有効\n")
-        f.write("- ボラティリティフィルター: 有効\n")
+        f.write("- 価格アクションパターン: 無効\n")
+        f.write("- ボラティリティフィルター: 無効\n")
         f.write("- 月別フィルター: 有効\n\n")
         
         f.write("## パフォーマンス指標\n\n")
