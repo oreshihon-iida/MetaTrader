@@ -39,19 +39,20 @@ df_15min = df_15min.sort_index()
 logger.log_info(f"結合後の15分足データ: {len(df_15min)}行")
 
 strategy = BollingerRsiEnhancedMTStrategy(
-    use_seasonal_filter=False,     # 季節性フィルターを無効化（より多くの取引機会を生成）
-    use_price_action=False,        # 価格アクションパターンを無効化（より多くの取引機会を生成）
-    timeframe_weights={            # 1時間足と4時間足のみを使用
-        '1H': 1.0,
-        '4H': 2.0
+    use_seasonal_filter=True,      # 季節性フィルターを有効化
+    use_price_action=True,         # 価格アクションパターンを有効化
+    timeframe_weights={            # すべての時間足を使用（オリジナルに近い）
+        '15min': 1.0,
+        '1H': 2.0,
+        '4H': 3.0
     },
-    rsi_upper=75,                  # RSI上限を厳しくして勝率を向上
-    rsi_lower=25,                  # RSI下限を厳しくして勝率を向上
-    bb_dev=2.0,                    # ボリンジャーバンド偏差を元に戻して勝率を向上
+    rsi_upper=70,                  # RSI上限を元の値に戻す
+    rsi_lower=30,                  # RSI下限を元の値に戻す
+    bb_dev=2.0,                    # ボリンジャーバンド偏差を維持
     sl_pips=10.0,                  # ストップロスを維持
-    tp_pips=40.0,                  # テイクプロフィットを増加（4.0倍のリスクリワード比）
-    consecutive_limit=3,           # 連続シグナル制限を元の値に戻す
-    volatility_filter=False        # ボラティリティフィルターを無効化（より多くの取引機会を生成）
+    tp_pips=30.0,                  # テイクプロフィットを調整（3.0倍のリスクリワード比）
+    consecutive_limit=2,           # 連続シグナル制限を中間値に設定
+    volatility_filter=True         # ボラティリティフィルターを有効化
 )
 
 def month_filter(df):
@@ -75,8 +76,8 @@ def month_filter(df):
 logger.log_info("シグナル生成開始")
 signals_df = strategy.generate_signals(df_15min, years[0], data_dir)
 
-# 月別フィルターを無効化（より多くの取引機会を生成）
-# signals_df = month_filter(signals_df)
+# 月別フィルターを有効化（勝率の低い月を除外）
+signals_df = month_filter(signals_df)
 
 logger.log_info(f"シグナル生成完了: {len(signals_df)}行")
 
@@ -167,18 +168,18 @@ if not results.empty:
         f.write(f"実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         
         f.write("## 戦略パラメータ\n\n")
-        f.write("- 時間足: 1時間足 + 4時間足\n")
-        f.write("- 時間足の重み付け: 1H: 1.0, 4H: 2.0\n")
-        f.write("- RSI上限: 75\n")
-        f.write("- RSI下限: 25\n")
+        f.write("- 時間足: 15分足 + 1時間足 + 4時間足\n")
+        f.write("- 時間足の重み付け: 15min: 1.0, 1H: 2.0, 4H: 3.0\n")
+        f.write("- RSI上限: 70\n")
+        f.write("- RSI下限: 30\n")
         f.write("- ボリンジャーバンド偏差: 2.0\n")
         f.write("- ストップロス: 10.0 pips\n")
-        f.write("- テイクプロフィット: 40.0 pips\n")
-        f.write("- 連続シグナル制限: 3\n")
-        f.write("- 季節性フィルター: 無効\n")
-        f.write("- 価格アクションパターン: 無効\n")
-        f.write("- ボラティリティフィルター: 無効\n")
-        f.write("- 月別フィルター: 無効\n\n")
+        f.write("- テイクプロフィット: 30.0 pips\n")
+        f.write("- 連続シグナル制限: 2\n")
+        f.write("- 季節性フィルター: 有効\n")
+        f.write("- 価格アクションパターン: 有効\n")
+        f.write("- ボラティリティフィルター: 有効\n")
+        f.write("- 月別フィルター: 有効\n\n")
         
         f.write("## パフォーマンス指標\n\n")
         f.write(f"- 総トレード数: {total_trades}\n")
