@@ -39,8 +39,8 @@ df_15min = df_15min.sort_index()
 logger.log_info(f"結合後の15分足データ: {len(df_15min)}行")
 
 strategy = BollingerRsiEnhancedMTStrategy(
-    use_seasonal_filter=True,      # 季節性フィルターを有効化
-    use_price_action=True,         # 価格アクションパターンを有効化
+    use_seasonal_filter=False,     # 季節性フィルターを無効化（より多くの取引機会を生成）
+    use_price_action=False,        # 価格アクションパターンを無効化（より多くの取引機会を生成）
     timeframe_weights={            # すべての時間足を使用（オリジナルに近い）
         '15min': 1.0,
         '1H': 2.0,
@@ -48,9 +48,9 @@ strategy = BollingerRsiEnhancedMTStrategy(
     },
     rsi_upper=70,                  # RSI上限を元の値に戻す（より多くの取引機会を生成）
     rsi_lower=30,                  # RSI下限を元の値に戻す（より多くの取引機会を生成）
-    bb_dev=2.0,                    # ボリンジャーバンド偏差を元に戻す
+    bb_dev=1.8,                    # ボリンジャーバンド偏差を緩和（より多くの取引機会を生成）
     sl_pips=10.0,                  # ストップロスを調整（元の値より大きく）
-    tp_pips=30.0,                  # テイクプロフィットを調整（3.0倍のリスクリワード比）
+    tp_pips=30.0,                  # テイクプロフィット（3.0倍のリスクリワード比）
     consecutive_limit=3,           # 連続シグナル制限を元の値に戻す
     volatility_filter=False        # ボラティリティフィルターを無効化（より多くの取引機会を生成）
 )
@@ -170,16 +170,16 @@ if not results.empty:
         f.write("## 戦略パラメータ\n\n")
         f.write("- 時間足: 15分足 + 1時間足 + 4時間足\n")
         f.write("- 時間足の重み付け: 15min: 1.0, 1H: 2.0, 4H: 3.0\n")
-        f.write("- RSI上限: 75\n")
-        f.write("- RSI下限: 25\n")
-        f.write("- ボリンジャーバンド偏差: 2.0\n")
+        f.write("- RSI上限: 70\n")
+        f.write("- RSI下限: 30\n")
+        f.write("- ボリンジャーバンド偏差: 1.8\n")
         f.write("- ストップロス: 10.0 pips\n")
         f.write("- テイクプロフィット: 30.0 pips\n")
-        f.write("- 連続シグナル制限: 2\n")
-        f.write("- 季節性フィルター: 有効\n")
-        f.write("- 価格アクションパターン: 有効\n")
-        f.write("- ボラティリティフィルター: 有効\n")
-        f.write("- 月別フィルター: 有効（勝率の低い月を除外）\n\n")
+        f.write("- 連続シグナル制限: 3\n")
+        f.write("- 季節性フィルター: 無効\n")
+        f.write("- 価格アクションパターン: 無効\n")
+        f.write("- ボラティリティフィルター: 無効\n")
+        f.write("- 月別フィルター: 無効\n\n")
         
         f.write("## パフォーマンス指標\n\n")
         f.write(f"- 総トレード数: {total_trades}\n")
