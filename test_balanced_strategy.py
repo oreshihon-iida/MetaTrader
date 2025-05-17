@@ -45,11 +45,11 @@ strategy = BollingerRsiEnhancedMTStrategy(
         '1H': 1.0,
         '4H': 2.0
     },
-    rsi_upper=70,                  # RSI上限を元の値に戻す（より多くの取引機会を生成）
-    rsi_lower=30,                  # RSI下限を元の値に戻す（より多くの取引機会を生成）
-    bb_dev=1.8,                    # ボリンジャーバンド偏差を緩和（より多くの取引機会を生成）
-    sl_pips=10.0,                  # ストップロスを調整（元の値より大きく）
-    tp_pips=30.0,                  # テイクプロフィット（3.0倍のリスクリワード比）
+    rsi_upper=75,                  # RSI上限を厳しくして勝率を向上
+    rsi_lower=25,                  # RSI下限を厳しくして勝率を向上
+    bb_dev=2.0,                    # ボリンジャーバンド偏差を元に戻して勝率を向上
+    sl_pips=10.0,                  # ストップロスを維持
+    tp_pips=40.0,                  # テイクプロフィットを増加（4.0倍のリスクリワード比）
     consecutive_limit=3,           # 連続シグナル制限を元の値に戻す
     volatility_filter=False        # ボラティリティフィルターを無効化（より多くの取引機会を生成）
 )
@@ -169,11 +169,11 @@ if not results.empty:
         f.write("## 戦略パラメータ\n\n")
         f.write("- 時間足: 1時間足 + 4時間足\n")
         f.write("- 時間足の重み付け: 1H: 1.0, 4H: 2.0\n")
-        f.write("- RSI上限: 70\n")
-        f.write("- RSI下限: 30\n")
-        f.write("- ボリンジャーバンド偏差: 1.8\n")
+        f.write("- RSI上限: 75\n")
+        f.write("- RSI下限: 25\n")
+        f.write("- ボリンジャーバンド偏差: 2.0\n")
         f.write("- ストップロス: 10.0 pips\n")
-        f.write("- テイクプロフィット: 30.0 pips\n")
+        f.write("- テイクプロフィット: 40.0 pips\n")
         f.write("- 連続シグナル制限: 3\n")
         f.write("- 季節性フィルター: 無効\n")
         f.write("- 価格アクションパターン: 無効\n")
