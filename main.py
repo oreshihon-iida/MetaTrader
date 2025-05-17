@@ -21,25 +21,45 @@ def main():
     logger = Logger(config.get('output', 'log_dir'))
     logger.log_info("FXトレードシステム バックテスト開始")
     
-    logger.log_info("データ読み込み中...")
-    data_loader = DataLoader(config.get('data', 'raw_dir'))
-    data = data_loader.load_all_data()
-    logger.log_info(f"データ読み込み完了: {len(data)} 行")
-    
-    logger.log_info("データ処理中...")
-    data_processor = DataProcessor(data)
-    
-    resampled_data = data_processor.resample(config.get('data', 'timeframe'))
-    logger.log_info(f"リサンプリング完了: {len(resampled_data)} 行")
-    
-    resampled_data = data_processor.add_technical_indicators(resampled_data)
-    
-    resampled_data = data_processor.get_tokyo_session_range(resampled_data)
-    logger.log_info("テクニカル指標の計算完了")
-    
     start_date = config.get('backtest', 'start_date')
     end_date = config.get('backtest', 'end_date')
-    backtest_data = resampled_data.loc[start_date:end_date]
+    timeframe = config.get('data', 'timeframe')
+    processed_dir = config.get('data', 'processed_dir')
+    
+    start_year = int(start_date.split('-')[0])
+    end_year = int(end_date.split('-')[0])
+    
+    logger.log_info(f"処理済みデータの読み込みを試みています（{timeframe}）...")
+    from src.data.data_processor_enhanced import DataProcessor as EnhancedDataProcessor
+    data_processor = EnhancedDataProcessor(None)
+    processed_data = pd.DataFrame()
+    
+    for year in range(start_year, end_year + 1):
+        year_data = data_processor.load_processed_data(timeframe, year, processed_dir)
+        if not year_data.empty:
+            processed_data = pd.concat([processed_data, year_data]) if not processed_data.empty else year_data
+    
+    if processed_data.empty:
+        logger.log_info("処理済みデータが見つかりません。生データから処理します...")
+        data_loader = DataLoader(config.get('data', 'raw_dir'))
+        data = data_loader.load_all_data()
+        logger.log_info(f"データ読み込み完了: {len(data)} 行")
+        
+        logger.log_info("データ処理中...")
+        data_processor = DataProcessor(data)
+        
+        resampled_data = data_processor.resample(timeframe)
+        logger.log_info(f"リサンプリング完了: {len(resampled_data)} 行")
+        
+        resampled_data = data_processor.add_technical_indicators(resampled_data)
+        
+        resampled_data = data_processor.get_tokyo_session_range(resampled_data)
+        logger.log_info("テクニカル指標の計算完了")
+        
+        backtest_data = resampled_data.loc[start_date:end_date]
+    else:
+        logger.log_info(f"処理済みデータ読み込み完了: {len(processed_data)} 行")
+        backtest_data = processed_data.loc[start_date:end_date]
     logger.log_info(f"バックテスト期間: {start_date} から {end_date}")
     
     backtest_engine = BacktestEngine(

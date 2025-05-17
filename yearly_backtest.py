@@ -37,26 +37,54 @@ def run_yearly_backtest(year, max_positions=1):
     logger = Logger(f"{year_dir}/logs")
     logger.log_info(f"{year}年 FXトレードシステム バックテスト開始")
     
-    logger.log_info("データ読み込み中...")
-    data_loader = DataLoader(config.get('data', 'raw_dir'))
-    data = data_loader.load_all_data()
-    logger.log_info(f"データ読み込み完了: {len(data)} 行")
+    config = Config()
+    timeframe = config.get('data', 'timeframe')
+    processed_dir = config.get('data', 'processed_dir')
     
-    logger.log_info("データ処理中...")
-    data_processor = DataProcessor(data)
+    logger.log_info(f"{year}年の処理済みデータの読み込みを試みています（{timeframe}）...")
+    from src.data.data_processor_enhanced import DataProcessor as EnhancedDataProcessor
+    data_processor = EnhancedDataProcessor(None)
+    year_data = data_processor.load_processed_data(timeframe, year, processed_dir)
     
-    resampled_data = data_processor.resample(config.get('data', 'timeframe'))
-    logger.log_info(f"リサンプリング完了: {len(resampled_data)} 行")
-    
-    resampled_data = data_processor.add_technical_indicators(resampled_data)
-    
-    resampled_data = data_processor.get_tokyo_session_range(resampled_data)
-    logger.log_info("テクニカル指標の計算完了")
-    
-    start_date = f"{year}-01-01"
-    end_date = f"{year}-12-31"
-    
-    year_data = resampled_data.loc[start_date:end_date]
+    if year_data.empty:
+        logger.log_info(f"処理済みデータが見つかりません。{year}年の生データから処理します...")
+        data_loader = DataLoader(config.get('data', 'raw_dir'))
+        data = data_loader.load_year_data(year)
+        
+        if data.empty:
+            logger.log_warning(f"{year}年のデータがありません")
+            return {
+                'year': year,
+                'has_data': False,
+                'trades': 0,
+                'profit': 0,
+                'win_rate': 0,
+                'initial_balance': config.get('backtest', 'initial_balance'),
+                'final_balance': config.get('backtest', 'initial_balance')
+            }
+        
+        logger.log_info(f"データ読み込み完了: {len(data)} 行")
+        
+        logger.log_info("データ処理中...")
+        data_processor = DataProcessor(data)
+        
+        resampled_data = data_processor.resample(timeframe)
+        logger.log_info(f"リサンプリング完了: {len(resampled_data)} 行")
+        
+        resampled_data = data_processor.add_technical_indicators(resampled_data)
+        
+        resampled_data = data_processor.get_tokyo_session_range(resampled_data)
+        logger.log_info("テクニカル指標の計算完了")
+        
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+        
+        year_data = resampled_data.loc[start_date:end_date]
+    else:
+        logger.log_info(f"処理済みデータ読み込み完了: {len(year_data)} 行")
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+        year_data = year_data.loc[start_date:end_date]
     if year_data.empty:
         logger.log_warning(f"{year}年のデータがありません")
         return {
