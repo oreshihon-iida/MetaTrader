@@ -41,10 +41,9 @@ logger.log_info(f"結合後の15分足データ: {len(df_15min)}行")
 strategy = BollingerRsiEnhancedMTStrategy(
     use_seasonal_filter=False,     # 季節性フィルターを無効化（より多くの取引機会を生成）
     use_price_action=False,        # 価格アクションパターンを無効化（より多くの取引機会を生成）
-    timeframe_weights={            # すべての時間足を使用（オリジナルに近い）
-        '15min': 1.0,
-        '1H': 2.0,
-        '4H': 3.0
+    timeframe_weights={            # 1時間足と4時間足のみを使用
+        '1H': 1.0,
+        '4H': 2.0
     },
     rsi_upper=70,                  # RSI上限を元の値に戻す（より多くの取引機会を生成）
     rsi_lower=30,                  # RSI下限を元の値に戻す（より多くの取引機会を生成）
@@ -168,8 +167,8 @@ if not results.empty:
         f.write(f"実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         
         f.write("## 戦略パラメータ\n\n")
-        f.write("- 時間足: 15分足 + 1時間足 + 4時間足\n")
-        f.write("- 時間足の重み付け: 15min: 1.0, 1H: 2.0, 4H: 3.0\n")
+        f.write("- 時間足: 1時間足 + 4時間足\n")
+        f.write("- 時間足の重み付け: 1H: 1.0, 4H: 2.0\n")
         f.write("- RSI上限: 70\n")
         f.write("- RSI下限: 30\n")
         f.write("- ボリンジャーバンド偏差: 1.8\n")
