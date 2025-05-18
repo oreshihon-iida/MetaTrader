@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import math
 from typing import Dict, List, Optional, Tuple
 import datetime
 from src.backtest.position import Position, PositionStatus
@@ -108,6 +109,17 @@ class EnhancedBacktestEngine:
                 monthly_performance[month_key]['wins'] += 1
             monthly_performance[month_key]['profit'] += pos.profit_jpy
         
+        avg_win = gross_profit / wins if wins > 0 else 0
+        avg_loss = gross_loss / losses if losses > 0 else 0
+        risk_reward_ratio = avg_win / avg_loss if avg_loss > 0 else 1.0
+        
+        if profit_factor <= 0 or math.isnan(profit_factor):
+            breakeven_win_rate = 50.0
+        elif profit_factor == 1.0:
+            breakeven_win_rate = 50.0
+        else:
+            breakeven_win_rate = (profit_factor / (profit_factor + risk_reward_ratio)) * 100
+        
         results = {
             'trades': total_trades,
             'wins': wins,
@@ -116,6 +128,8 @@ class EnhancedBacktestEngine:
             'gross_profit': gross_profit,
             'gross_loss': gross_loss,
             'profit_factor': profit_factor,
+            'risk_reward_ratio': risk_reward_ratio,
+            'breakeven_win_rate': breakeven_win_rate,
             'net_profit': net_profit,
             'final_balance': self.balance,
             'monthly_performance': monthly_performance,
