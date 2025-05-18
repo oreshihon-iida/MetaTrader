@@ -36,12 +36,12 @@ all_data = []
 for year in years:
     logger.log_info(f"{year}年のデータを処理中...")
     
-    data_dir = f"data/processed/5min/{year}"
+    data_dir = f"data/processed/15min/{year}"
     if not os.path.exists(data_dir):
         logger.log_warning(f"{data_dir} が見つかりません")
         continue
     
-    data_file = f"{data_dir}/USDJPY_5min_{year}.csv"
+    data_file = f"{data_dir}/USDJPY_15min_{year}.csv"
     if not os.path.exists(data_file):
         logger.log_warning(f"{data_file} が見つかりません")
         continue
@@ -49,7 +49,20 @@ for year in years:
     data = pd.read_csv(data_file, index_col=0, parse_dates=True)
     logger.log_info(f"{len(data)} 行のデータを読み込みました")
     
+    five_min_dir = f"data/processed/5min/{year}"
+    five_min_file = f"{five_min_dir}/USDJPY_5min_{year}.csv"
+    if not os.path.exists(five_min_file):
+        logger.log_warning(f"5分足データが見つかりません: {five_min_file}")
+        logger.log_info("5分足データを生成するには transform_data.py を実行してください")
+        continue
+    
+    logger.log_info("シグナル生成開始...")
+    logger.log_info(f"使用する時間足の重み: {strategy.timeframe_weights}")
+    
+    logger.log_info("単一時間足モードで実行します（複数時間足分析を無効化）")
+    strategy.use_multi_timeframe = False
     signals = strategy.generate_signals(data, year, 'data/processed')
+    logger.log_info("シグナル生成完了、バックテスト開始...")
     
     backtest = CustomBacktestEngine(
         data=signals,
@@ -60,22 +73,23 @@ for year in years:
     )
     
     result = backtest.run()
+    logger.log_info(f"バックテスト完了、結果: {len(result)} トレード")
     
     trades = len(result)
-    wins = len(result[result['profit_pips'] > 0]) if not result.empty else 0
+    wins = len(result[result['損益(pips)'] > 0]) if not result.empty else 0
     win_rate = (wins / trades * 100) if trades > 0 else 0
     
     if not result.empty:
-        total_profit = result[result['profit_pips'] > 0]['profit_pips'].sum()
-        total_loss = abs(result[result['profit_pips'] < 0]['profit_pips'].sum())
+        total_profit = result[result['損益(pips)'] > 0]['損益(pips)'].sum()
+        total_loss = abs(result[result['損益(pips)'] < 0]['損益(pips)'].sum())
         profit_factor = total_profit / total_loss if total_loss > 0 else 0
-        net_profit = result['profit_jpy'].sum()
+        net_profit = result['損益(円)'].sum()
     else:
         profit_factor = 0
         net_profit = 0
         
     for _, trade in result.iterrows():
-        is_win = trade['profit_pips'] > 0
+        is_win = trade['損益(pips)'] > 0
         strategy.update_consecutive_stats(is_win)
     
     logger.log_info(f"{year}年の結果:")

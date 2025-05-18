@@ -48,7 +48,14 @@ for year in years:
     data = pd.read_csv(data_file, index_col=0, parse_dates=True)
     logger.log_info(f"{len(data)} 行のデータを読み込みました")
     
-    signals = strategy.generate_signals(data, year, 'data/processed')
+    start_date = f"{year}-01-01"
+    end_date = f"{year}-01-31"
+    logger.log_info(f"データをサンプリング: {start_date} から {end_date} までのデータのみを使用")
+    
+    sampled_data = data.loc[start_date:end_date].copy()
+    logger.log_info(f"サンプリング後のデータサイズ: {len(sampled_data)} 行")
+    
+    signals = strategy.generate_signals(sampled_data, year, 'data/processed')
     
     backtest = CustomBacktestEngine(
         data=signals,
@@ -61,20 +68,20 @@ for year in years:
     result = backtest.run()
     
     trades = len(result)
-    wins = len(result[result['profit_pips'] > 0]) if not result.empty else 0
+    wins = len(result[result['損益(pips)'] > 0]) if not result.empty else 0
     win_rate = (wins / trades * 100) if trades > 0 else 0
     
     if not result.empty:
-        total_profit = result[result['profit_pips'] > 0]['profit_pips'].sum()
-        total_loss = abs(result[result['profit_pips'] < 0]['profit_pips'].sum())
+        total_profit = result[result['損益(pips)'] > 0]['損益(pips)'].sum()
+        total_loss = abs(result[result['損益(pips)'] < 0]['損益(pips)'].sum())
         profit_factor = total_profit / total_loss if total_loss > 0 else 0
-        net_profit = result['profit_jpy'].sum()
+        net_profit = result['損益(円)'].sum()
     else:
         profit_factor = 0
         net_profit = 0
         
     for _, trade in result.iterrows():
-        is_win = trade['profit_pips'] > 0
+        is_win = trade['損益(pips)'] > 0
         strategy.update_consecutive_stats(is_win)
     
     logger.log_info(f"{year}年の結果:")
