@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import math
 from typing import Dict, List, Optional, Tuple
 import datetime
 from src.backtest.position import Position, PositionStatus
@@ -112,7 +113,12 @@ class EnhancedBacktestEngine:
         avg_loss = gross_loss / losses if losses > 0 else 0
         risk_reward_ratio = avg_win / avg_loss if avg_loss > 0 else 1.0
         
-        breakeven_win_rate = 50.0 if profit_factor == 1.0 else (profit_factor / (profit_factor + risk_reward_ratio)) * 100
+        if profit_factor <= 0 or math.isnan(profit_factor):
+            breakeven_win_rate = 50.0
+        elif profit_factor == 1.0:
+            breakeven_win_rate = 50.0
+        else:
+            breakeven_win_rate = (profit_factor / (profit_factor + risk_reward_ratio)) * 100
         
         results = {
             'trades': total_trades,
