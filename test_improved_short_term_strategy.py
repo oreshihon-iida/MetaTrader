@@ -22,7 +22,7 @@ os.makedirs(output_dir, exist_ok=True)
 os.makedirs(f'{output_dir}/charts', exist_ok=True)
 os.makedirs(f'{output_dir}/reports', exist_ok=True)
 
-test_years = [2025]  # 2025年のみテスト
+test_years = [2023, 2024, 2025]  # 2023-2025年をテスト
 
 logger.info(f"改良版短期戦略のテスト開始")
 
