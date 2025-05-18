@@ -22,10 +22,10 @@ class ImprovedShortTermStrategy(ShortTermBollingerRsiStrategy):
         """
         default_params = {
             'bb_window': 20,
-            'bb_dev': 1.6,          # 標準偏差を1.4から1.6に調整してノイズを減少
+            'bb_dev': 1.8,          # 標準偏差を1.6から1.8に調整してノイズを減少
             'rsi_window': 14,
-            'rsi_upper': 55,        # RSI閾値を60から55に調整して高品質シグナルに限定
-            'rsi_lower': 45,        # RSI閾値を40から45に調整して高品質シグナルに限定
+            'rsi_upper': 60,        # RSI閾値を55から60に調整して高品質シグナルに限定
+            'rsi_lower': 40,        # RSI閾値を45から40に調整して高品質シグナルに限定
             'sl_pips': 3.0,         # 損切り幅は維持
             'tp_pips': 7.5,         # 利確幅を6.0から7.5に拡大してリスク・リワード比を改善
             'atr_window': 14,
@@ -75,8 +75,12 @@ class ImprovedShortTermStrategy(ShortTermBollingerRsiStrategy):
             
         if self.vol_filter:
             atr = df['atr'].iloc[i]
-            atr_threshold = df['atr'].rolling(window=20).mean().iloc[i] * 0.8
-            if atr < atr_threshold:
+            avg_atr = df['atr'].rolling(window=20).mean().iloc[i]
+            
+            if atr < avg_atr * 0.7:
+                return False
+                
+            if atr > avg_atr * 2.0:
                 return False
         
         if self.time_filter:

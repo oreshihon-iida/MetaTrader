@@ -22,7 +22,7 @@ os.makedirs(output_dir, exist_ok=True)
 os.makedirs(f'{output_dir}/charts', exist_ok=True)
 os.makedirs(f'{output_dir}/reports', exist_ok=True)
 
-test_years = [2025]  # 2025年のみテスト
+test_years = [2023, 2024, 2025]  # 2023-2025年をテスト
 
 logger.info(f"改良版短期戦略のテスト開始")
 
@@ -141,12 +141,12 @@ try:
             f.write(f"\n## 改良点\n\n")
             f.write(f"| パラメータ | 元の値 | 改良後の値 | 説明 |\n")
             f.write(f"| --- | --- | --- | --- |\n")
-            f.write(f"| bb_dev | 1.4 | 1.6 | ボリンジャーバンド幅を広げてノイズを減少 |\n")
-            f.write(f"| rsi_upper | 60 | 55 | RSI閾値を調整して高品質シグナルに限定 |\n")
-            f.write(f"| rsi_lower | 40 | 45 | RSI閾値を調整して高品質シグナルに限定 |\n")
-            f.write(f"| tp_pips | 6.0 | 7.5 | 利確幅を拡大してリスク・リワード比を改善 |\n")
-            f.write(f"| vol_filter | False | True | ボラティリティフィルターを有効化 |\n")
-            f.write(f"| 時間フィルター | 広範囲 | 高勝率時間帯のみ | 時間フィルターを強化 |\n")
+            f.write(f"| bb_dev | 1.6 | 1.8 | ボリンジャーバンド幅を広げてノイズを減少 |\n")
+            f.write(f"| rsi_upper | 55 | 60 | RSI閾値を調整して高品質シグナルに限定 |\n")
+            f.write(f"| rsi_lower | 45 | 40 | RSI閾値を調整して高品質シグナルに限定 |\n")
+            f.write(f"| tp_pips | 7.5 | 7.5 | 利確幅を維持 |\n")
+            f.write(f"| vol_filter | True | True | ボラティリティ上限フィルターを追加 |\n")
+            f.write(f"| シグナル条件 | OR | AND | シグナル生成条件を厳格化 |\n")
             f.write(f"| 連続損失管理 | なし | あり | 連続損失後のポジションサイズ削減機能を追加 |\n")
             
             f.write(f"\n## 結論\n\n")

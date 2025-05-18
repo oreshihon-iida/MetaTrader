@@ -167,29 +167,31 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
                 current = df_signals.iloc[i]
                 previous = df_signals.iloc[i-1]
                 
-                if (previous['Close'] >= previous['bb_upper'] * 0.75 or  # 0.80から0.75に緩和
-                    previous['rsi'] >= self.rsi_upper * 0.60):    # 0.65から0.60に緩和
+                if (previous['Close'] >= previous['bb_upper'] * 0.85 and  # ORからANDに変更、0.75から0.85に調整
+                    previous['rsi'] >= self.rsi_upper * 0.80):    # 0.60から0.80に調整
                     
-                    df_signals.loc[df_signals.index[i], 'signal'] = -1
-                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
-                    
-                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, -1)
-                    
-                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
-                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
-                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+                    if self._apply_filters(df, i):  # フィルター適用を明示的に追加
+                        df_signals.loc[df_signals.index[i], 'signal'] = -1
+                        df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                        
+                        sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, -1)
+                        
+                        df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                        df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                        df_signals.loc[df_signals.index[i], 'strategy'] = self.name
                 
-                elif (previous['Close'] <= previous['bb_lower'] * 1.25 or  # 1.20から1.25に緩和
-                      previous['rsi'] <= self.rsi_lower * 1.40):    # 1.35から1.40に緩和
+                elif (previous['Close'] <= previous['bb_lower'] * 1.15 and  # ORからANDに変更、1.25から1.15に調整
+                      previous['rsi'] <= self.rsi_lower * 1.20):    # 1.40から1.20に調整
                     
-                    df_signals.loc[df_signals.index[i], 'signal'] = 1
-                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
-                    
-                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, 1)
-                    
-                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
-                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
-                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+                    if self._apply_filters(df, i):  # フィルター適用を明示的に追加
+                        df_signals.loc[df_signals.index[i], 'signal'] = 1
+                        df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                        
+                        sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, 1)
+                        
+                        df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                        df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                        df_signals.loc[df_signals.index[i], 'strategy'] = self.name
                 
                 elif previous['rsi'] <= self.rsi_lower * 1.3:  # RSIが非常に低い場合も買いシグナル（条件緩和）
                     df_signals.loc[df_signals.index[i], 'signal'] = 1
