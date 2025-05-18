@@ -22,7 +22,7 @@ os.makedirs(output_dir, exist_ok=True)
 os.makedirs(f'{output_dir}/charts', exist_ok=True)
 os.makedirs(f'{output_dir}/reports', exist_ok=True)
 
-test_years = [2010, 2024, 2025]
+test_years = [2023, 2024, 2025]  # 2010年は除外し、2023-2025年の最新データに焦点
 
 logger.info(f"高性能ボリンジャーバンド＋RSI戦略のテスト開始")
 
