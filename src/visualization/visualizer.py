@@ -189,6 +189,32 @@ class Visualizer:
         plt.savefig(os.path.join(self.output_dir, filename))
         plt.close()
     
+    def plot_equity_curves(self, equity_curves: pd.DataFrame, title: str = 'Equity Curves'):
+        """
+        複数のエクイティカーブを一つのグラフに表示する
+        
+        Parameters
+        ----------
+        equity_curves : pd.DataFrame
+            複数のエクイティカーブを含むDataFrame
+        title : str, default 'Equity Curves'
+            グラフのタイトル
+        """
+        plt.figure(figsize=(12, 6))
+        
+        for column in equity_curves.columns:
+            plt.plot(equity_curves.index, equity_curves[column], label=column)
+        
+        plt.title(title)
+        plt.xlabel('Date')
+        plt.ylabel('Equity (JPY)')
+        plt.grid(True)
+        plt.legend()
+        
+        file_name = f"{title.replace(' ', '_').lower()}.png"
+        plt.savefig(os.path.join(self.output_dir, file_name))
+        plt.close()
+    
     def create_performance_summary(self, results: pd.DataFrame, initial_balance: float = 200000) -> Dict:
         """
         パフォーマンスサマリーを作成する
