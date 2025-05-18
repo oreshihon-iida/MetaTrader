@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple, List, Optional, Set
+from typing import Dict, Tuple, List, Optional
 from ..data.data_processor_enhanced import DataProcessor
 from .bollinger_rsi_enhanced import BollingerRsiEnhancedStrategy
 
@@ -167,31 +167,29 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
                 current = df_signals.iloc[i]
                 previous = df_signals.iloc[i-1]
                 
-                if (previous['Close'] >= previous['bb_upper'] * 0.85 and  # ORからANDに変更、0.75から0.85に調整
-                    previous['rsi'] >= self.rsi_upper * 0.80):    # 0.60から0.80に調整
+                if (previous['Close'] >= previous['bb_upper'] * 0.75 or  # 0.80から0.75に緩和
+                    previous['rsi'] >= self.rsi_upper * 0.60):    # 0.65から0.60に緩和
                     
-                    if self._apply_filters(df, i):  # フィルター適用を明示的に追加
-                        df_signals.loc[df_signals.index[i], 'signal'] = -1
-                        df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
-                        
-                        sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, -1)
-                        
-                        df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
-                        df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
-                        df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+                    df_signals.loc[df_signals.index[i], 'signal'] = -1
+                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                    
+                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, -1)
+                    
+                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
                 
-                elif (previous['Close'] <= previous['bb_lower'] * 1.15 and  # ORからANDに変更、1.25から1.15に調整
-                      previous['rsi'] <= self.rsi_lower * 1.20):    # 1.40から1.20に調整
+                elif (previous['Close'] <= previous['bb_lower'] * 1.25 or  # 1.20から1.25に緩和
+                      previous['rsi'] <= self.rsi_lower * 1.40):    # 1.35から1.40に緩和
                     
-                    if self._apply_filters(df, i):  # フィルター適用を明示的に追加
-                        df_signals.loc[df_signals.index[i], 'signal'] = 1
-                        df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
-                        
-                        sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, 1)
-                        
-                        df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
-                        df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
-                        df_signals.loc[df_signals.index[i], 'strategy'] = self.name
+                    df_signals.loc[df_signals.index[i], 'signal'] = 1
+                    df_signals.loc[df_signals.index[i], 'entry_price'] = current['Open']
+                    
+                    sl_price, tp_price = self._calculate_adaptive_sl_tp(df_signals, i, 1)
+                    
+                    df_signals.loc[df_signals.index[i], 'sl_price'] = sl_price
+                    df_signals.loc[df_signals.index[i], 'tp_price'] = tp_price
+                    df_signals.loc[df_signals.index[i], 'strategy'] = self.name
                 
                 elif previous['rsi'] <= self.rsi_lower * 1.3:  # RSIが非常に低い場合も買いシグナル（条件緩和）
                     df_signals.loc[df_signals.index[i], 'signal'] = 1
@@ -541,15 +539,9 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
             return False
             
         # 価格アクションパターン（オプション）
-        if self.use_price_action:
-            if hasattr(self, '_check_price_action_patterns') and callable(getattr(self, '_check_price_action_patterns')):
-                result = self._check_price_action_patterns(df, i)
-                if isinstance(result, tuple):
-                    return result[0]  # 最初の要素（bool）のみを返す
-                else:
-                    return result
-            else:
-                return False
+        if self.use_price_action and not self._check_price_action_patterns(df, i):
+            return False
+        
         
         return True
     
@@ -574,10 +566,7 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         """
         # 複数時間足分析を使用しない場合は親クラスの処理を使用
         if not self.use_multi_timeframe:
-            result_df = super().generate_signals(df)
-            if hasattr(self, 'active_trade_patterns'):
-                self._associate_patterns_with_signals(result_df)
-            return result_df
+            return super().generate_signals(df)
         
         available_timeframes = {}
         data_processor = DataProcessor(pd.DataFrame())
@@ -591,10 +580,7 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
                 continue
         
         if not available_timeframes or '15min' not in available_timeframes:
-            result_df = super().generate_signals(df)
-            if hasattr(self, 'active_trade_patterns'):
-                self._associate_patterns_with_signals(result_df)
-            return result_df
+            return super().generate_signals(df)
         
         temp_weights = self.timeframe_weights.copy()
         self.timeframe_weights = available_timeframes
@@ -603,10 +589,7 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         
         if len(multi_tf_data) < 2 or '15min' not in multi_tf_data:
             self.timeframe_weights = temp_weights  # 元の重みに戻す
-            result_df = super().generate_signals(df)
-            if hasattr(self, 'active_trade_patterns'):
-                self._associate_patterns_with_signals(result_df)
-            return result_df
+            return super().generate_signals(df)
         
         signals = self.analyze_timeframe_signals(multi_tf_data)
         
@@ -614,8 +597,5 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         result_df = self.merge_timeframe_signals(df, signals)
         
         self.timeframe_weights = temp_weights
-        
-        if hasattr(self, 'active_trade_patterns'):
-            self._associate_patterns_with_signals(result_df)
         
         return result_df
