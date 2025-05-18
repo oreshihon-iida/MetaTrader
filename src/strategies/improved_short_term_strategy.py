@@ -27,8 +27,8 @@ class ImprovedShortTermStrategy(ShortTermBollingerRsiStrategy):
             'rsi_window': 14,
             'rsi_upper': 55,        # RSI閾値を60から55に調整して高品質シグナルに限定
             'rsi_lower': 45,        # RSI閾値を40から45に調整して高品質シグナルに限定
-            'sl_pips': 3.0,         # 損切り幅は維持
-            'tp_pips': 7.5,         # 利確幅を6.0から7.5に拡大してリスク・リワード比を改善
+            'sl_pips': 2.5,         # 損切り幅を縮小（3.0→2.5）
+            'tp_pips': 12.5,        # 利確幅を大幅に拡大してリスク・リワード比を1:5に改善
             'atr_window': 14,
             'atr_sl_multiplier': 0.8,
             'atr_tp_multiplier': 2.0,  # ATRベースの利確乗数を1.6から2.0に拡大
@@ -37,7 +37,7 @@ class ImprovedShortTermStrategy(ShortTermBollingerRsiStrategy):
             'vol_filter': True,     # ボラティリティフィルターを有効化して高ボラティリティ時のみ取引
             'time_filter': True,
             'use_multi_timeframe': True,
-            'timeframe_weights': {'15min': 1.0},  # 15分足のみを使用
+            'timeframe_weights': {'5min': 2.0, '15min': 1.0},  # 5分足と15分足を使用
             'use_seasonal_filter': False,
             'use_price_action': True,  # フェーズ4: 価格アクションパターンを有効化
             'consecutive_limit': 2
@@ -296,9 +296,14 @@ class ImprovedShortTermStrategy(ShortTermBollingerRsiStrategy):
         if self.consecutive_losses >= self.max_consecutive_losses:
             return base_size * 0.5
         
-        if self.consecutive_wins >= 3:
-            if self.win_rate >= 0.8:  # 勝率80%以上の場合のみ
-                return min(base_size * 1.5, 0.02)  # 最大0.02ロット
+        if self.consecutive_wins >= 2:
+            bonus_factor = 1.0 + (self.consecutive_wins * 0.2)
+            max_factor = 5.0  # 最大5倍まで（0.05ロット）
+            
+            if self.win_rate >= 0.5:  # 勝率50%以上の場合のみ最大倍率を適用
+                return base_size * min(max_factor, bonus_factor)
+            else:
+                return base_size * min(2.0, bonus_factor)  # 勝率低い場合は最大2倍まで
         
         return base_size
         
