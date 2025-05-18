@@ -73,6 +73,10 @@ for year in years:
     else:
         profit_factor = 0
         net_profit = 0
+        
+    for _, trade in result.iterrows():
+        is_win = trade['profit_pips'] > 0
+        strategy.update_consecutive_stats(is_win)
     
     logger.log_info(f"{year}年の結果:")
     logger.log_info(f"トレード数: {trades}")
