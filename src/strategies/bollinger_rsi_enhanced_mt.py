@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, Tuple, List, Optional, Set
 from ..data.data_processor_enhanced import DataProcessor
 from .bollinger_rsi_enhanced import BollingerRsiEnhancedStrategy
 
@@ -541,9 +541,15 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
             return False
             
         # 価格アクションパターン（オプション）
-        if self.use_price_action and not self._check_price_action_patterns(df, i):
-            return False
-        
+        if self.use_price_action:
+            if hasattr(self, '_check_price_action_patterns') and callable(getattr(self, '_check_price_action_patterns')):
+                result = self._check_price_action_patterns(df, i)
+                if isinstance(result, tuple):
+                    return result[0]  # 最初の要素（bool）のみを返す
+                else:
+                    return result
+            else:
+                return False
         
         return True
     
@@ -568,7 +574,10 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         """
         # 複数時間足分析を使用しない場合は親クラスの処理を使用
         if not self.use_multi_timeframe:
-            return super().generate_signals(df)
+            result_df = super().generate_signals(df)
+            if hasattr(self, 'active_trade_patterns'):
+                self._associate_patterns_with_signals(result_df)
+            return result_df
         
         available_timeframes = {}
         data_processor = DataProcessor(pd.DataFrame())
@@ -582,7 +591,10 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
                 continue
         
         if not available_timeframes or '15min' not in available_timeframes:
-            return super().generate_signals(df)
+            result_df = super().generate_signals(df)
+            if hasattr(self, 'active_trade_patterns'):
+                self._associate_patterns_with_signals(result_df)
+            return result_df
         
         temp_weights = self.timeframe_weights.copy()
         self.timeframe_weights = available_timeframes
@@ -591,7 +603,10 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         
         if len(multi_tf_data) < 2 or '15min' not in multi_tf_data:
             self.timeframe_weights = temp_weights  # 元の重みに戻す
-            return super().generate_signals(df)
+            result_df = super().generate_signals(df)
+            if hasattr(self, 'active_trade_patterns'):
+                self._associate_patterns_with_signals(result_df)
+            return result_df
         
         signals = self.analyze_timeframe_signals(multi_tf_data)
         
@@ -599,5 +614,8 @@ class BollingerRsiEnhancedMTStrategy(BollingerRsiEnhancedStrategy):
         result_df = self.merge_timeframe_signals(df, signals)
         
         self.timeframe_weights = temp_weights
+        
+        if hasattr(self, 'active_trade_patterns'):
+            self._associate_patterns_with_signals(result_df)
         
         return result_df

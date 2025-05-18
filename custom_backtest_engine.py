@@ -13,7 +13,7 @@ class CustomBacktestEngine:
 
     def __init__(self, data: pd.DataFrame, initial_balance: float = 200000,
                  lot_size: float = 0.01, max_positions: int = 3,
-                 spread_pips: float = 0.2):
+                 spread_pips: float = 0.2, strategy_instance=None):
         """
         初期化
 
@@ -29,6 +29,8 @@ class CustomBacktestEngine:
             同時に保有できる最大ポジション数
         spread_pips : float, default 0.2
             スプレッド（pips）
+        strategy_instance : object, default None
+            戦略インスタンス（パターン統計更新用）
         """
         self.data = data.copy()
         self.initial_balance = initial_balance
@@ -36,6 +38,7 @@ class CustomBacktestEngine:
         self.lot_size = lot_size
         self.max_positions = max_positions
         self.spread_pips = spread_pips
+        self.strategy_instance = strategy_instance
 
         self.open_positions = []
         self.closed_positions = []
@@ -150,6 +153,17 @@ class CustomBacktestEngine:
             self.closed_positions.append(position)
             self.open_positions.remove(position)
             self.trade_history.append(self._create_trade_log(position))
+            
+            if hasattr(position, 'strategy') and hasattr(position, 'entry_time'):
+                strategy_instance = self._get_strategy_instance(position.strategy)
+                if strategy_instance and hasattr(strategy_instance, 'update_consecutive_stats'):
+                    entry_time = position.entry_time
+                    pattern_types = None
+                    
+                    if hasattr(strategy_instance, 'active_trade_patterns') and entry_time in strategy_instance.active_trade_patterns:
+                        pattern_types = strategy_instance.active_trade_patterns.pop(entry_time)
+                        
+                    strategy_instance.update_consecutive_stats(position.profit_pips > 0, pattern_types)
 
     def _open_new_position(self, current_time: pd.Timestamp, current_bar: pd.Series):
         """
@@ -245,3 +259,23 @@ class CustomBacktestEngine:
             else:
                 return df
         return pd.DataFrame(columns=['balance', 'equity', 'open_positions'])
+        
+    def _get_strategy_instance(self, strategy_name: str) -> Optional[object]:
+        """
+        戦略名から戦略インスタンスを取得する
+        
+        Parameters
+        ----------
+        strategy_name : str
+            戦略名
+            
+        Returns
+        -------
+        Optional[object]
+            戦略インスタンス。見つからない場合はNone
+        """
+        
+        if hasattr(self, 'strategy_instance'):
+            return self.strategy_instance
+            
+        return None
