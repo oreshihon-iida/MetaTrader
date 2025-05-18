@@ -58,7 +58,7 @@ try:
             continue
         
         logger.info("バックテスト実行開始")
-        backtest_engine = CustomBacktestEngine(signals_df, spread_pips=0.03)
+        backtest_engine = CustomBacktestEngine(signals_df, spread_pips=0.03, strategy_instance=strategy)
         backtest_results = backtest_engine.run()
         
         trades = backtest_results['trades']
@@ -148,6 +148,36 @@ try:
             f.write(f"| vol_filter | True | True | ボラティリティ上限フィルターを追加 |\n")
             f.write(f"| シグナル条件 | OR | AND | シグナル生成条件を厳格化 |\n")
             f.write(f"| 連続損失管理 | なし | あり | 連続損失後のポジションサイズ削減機能を追加 |\n")
+            f.write(f"| use_enhanced_patterns | False | True | 強化版パターン検出を有効化 |\n")
+            f.write(f"| use_market_env_patterns | False | True | 市場環境別パターン適用を有効化 |\n")
+            f.write(f"| use_composite_patterns | False | True | 複合パターン検出を有効化 |\n")
+            f.write(f"| use_year_specific_filters | False | True | 年別フィルターを有効化 |\n")
+            
+            f.write(f"\n## パターン検出の効果\n\n")
+            f.write(f"| パターンタイプ | 検出回数 | 勝利数 | 勝率 (%) | 効果 |\n")
+            f.write(f"| --- | --- | --- | --- | --- |\n")
+            
+            for pattern_type, stats in strategy.pattern_stats.items():
+                count = stats['count']
+                wins = stats['wins']
+                win_rate = (wins / count * 100) if count > 0 else 0
+                
+                effect = "低"
+                if win_rate > 40:
+                    effect = "高"
+                elif win_rate > 30:
+                    effect = "中"
+                
+                pattern_name = {
+                    'pin_bar': 'ピンバー',
+                    'engulfing': 'エンゲルフィング',
+                    'trend_confirmation': 'トレンド確認',
+                    'bollinger_position': 'ボリンジャーバンド',
+                    'rsi_extreme': 'RSI極値',
+                    'composite': '複合パターン'
+                }.get(pattern_type, pattern_type)
+                
+                f.write(f"| {pattern_name} | {count} | {wins} | {win_rate:.2f} | {effect} |\n")
             
             f.write(f"\n## 結論\n\n")
             
