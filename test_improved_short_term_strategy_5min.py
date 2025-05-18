@@ -36,12 +36,12 @@ all_data = []
 for year in years:
     logger.log_info(f"{year}年のデータを処理中...")
     
-    data_dir = f"data/processed/15min/{year}"
+    data_dir = f"data/processed/5min/{year}"
     if not os.path.exists(data_dir):
         logger.log_warning(f"{data_dir} が見つかりません")
         continue
     
-    data_file = f"{data_dir}/USDJPY_15min_{year}.csv"
+    data_file = f"{data_dir}/USDJPY_5min_{year}.csv"
     if not os.path.exists(data_file):
         logger.log_warning(f"{data_file} が見つかりません")
         continue
