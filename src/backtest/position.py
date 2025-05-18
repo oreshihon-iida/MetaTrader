@@ -72,6 +72,24 @@ class Position:
         pip_value = 0.01 * 1000 * self.lot_size
         self.profit_jpy = self.profit_pips * pip_value
     
+    def calculate_profit(self, current_price: float) -> float:
+        """
+        現在の価格に基づいて、オープンポジションの利益を計算する
+        
+        Parameters
+        ----------
+        current_price : float
+            現在の価格
+            
+        Returns
+        -------
+        float
+            現在の利益（円）
+        """
+        profit_pips = (current_price - self.entry_price) * self.direction * 100
+        pip_value = 0.01 * 1000 * self.lot_size
+        return profit_pips * pip_value
+    
     def to_dict(self) -> Dict:
         """
         ポジション情報を辞書形式で返す
