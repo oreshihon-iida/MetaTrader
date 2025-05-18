@@ -40,9 +40,28 @@ class Visualizer:
             return
             
         results = results.copy()
-        results['entry_time'] = pd.to_datetime(results['エントリー時間']) if 'エントリー時間' in results.columns else pd.to_datetime(results['entry_time'])
-        results['cumulative_profit'] = results['profit_jpy'].cumsum()
-        results['equity'] = initial_balance + results['cumulative_profit']
+        
+        if 'equity' in results.columns and results.index.name == 'time':
+            plt.figure(figsize=(12, 6))
+            plt.plot(results.index, results['equity'])
+            plt.title('Equity Curve')
+            plt.xlabel('Date')
+            plt.ylabel('Equity (JPY)')
+            plt.grid(True)
+            plt.savefig(os.path.join(self.output_dir, filename))
+            plt.close()
+            return
+            
+        if 'エントリー時間' in results.columns:
+            results['entry_time'] = pd.to_datetime(results['エントリー時間'])
+        elif 'entry_time' in results.columns:
+            results['entry_time'] = pd.to_datetime(results['entry_time'])
+        else:
+            results['entry_time'] = results.index
+            
+        if 'profit_jpy' in results.columns:
+            results['cumulative_profit'] = results['profit_jpy'].cumsum()
+            results['equity'] = initial_balance + results['cumulative_profit']
         
         plt.figure(figsize=(12, 6))
         plt.plot(results['entry_time'], results['equity'])
@@ -71,11 +90,34 @@ class Visualizer:
             return
             
         results = results.copy()
-        results['entry_time'] = pd.to_datetime(results['エントリー時間']) if 'エントリー時間' in results.columns else pd.to_datetime(results['entry_time'])
-        results['cumulative_profit'] = results['profit_jpy'].cumsum()
-        results['equity'] = initial_balance + results['cumulative_profit']
-        results['peak'] = results['equity'].cummax()
-        results['drawdown'] = (results['equity'] - results['peak']) / results['peak'] * 100
+        
+        if 'equity' in results.columns and results.index.name == 'time':
+            if 'drawdown' not in results.columns:
+                results['peak'] = results['equity'].cummax()
+                results['drawdown'] = (results['equity'] - results['peak']) / results['peak'] * 100
+                
+            plt.figure(figsize=(12, 6))
+            plt.plot(results.index, results['drawdown'])
+            plt.title('Drawdown')
+            plt.xlabel('Date')
+            plt.ylabel('Drawdown (%)')
+            plt.grid(True)
+            plt.savefig(os.path.join(self.output_dir, filename))
+            plt.close()
+            return
+            
+        if 'エントリー時間' in results.columns:
+            results['entry_time'] = pd.to_datetime(results['エントリー時間'])
+        elif 'entry_time' in results.columns:
+            results['entry_time'] = pd.to_datetime(results['entry_time'])
+        else:
+            results['entry_time'] = results.index
+            
+        if 'profit_jpy' in results.columns:
+            results['cumulative_profit'] = results['profit_jpy'].cumsum()
+            results['equity'] = initial_balance + results['cumulative_profit']
+            results['peak'] = results['equity'].cummax()
+            results['drawdown'] = (results['equity'] - results['peak']) / results['peak'] * 100
         
         plt.figure(figsize=(12, 6))
         plt.plot(results['entry_time'], results['drawdown'])
@@ -86,30 +128,47 @@ class Visualizer:
         plt.savefig(os.path.join(self.output_dir, filename))
         plt.close()
     
-    def plot_monthly_returns(self, results: pd.DataFrame, filename: str = 'monthly_returns.png') -> None:
+    def plot_monthly_returns(self, data, profits=None, filename: str = 'monthly_returns.png') -> None:
         """
         月別リターンをプロットする
         
         Parameters
         ----------
-        results : pd.DataFrame
-            バックテスト結果
+        data : pd.DataFrame or List
+            バックテスト結果またはmonthsのリスト
+        profits : List, optional
+            月別利益のリスト（dataがmonthsのリストの場合に必要）
         filename : str, default 'monthly_returns.png'
             出力ファイル名
         """
-        if results.empty:
-            return
-            
-        results = results.copy()
-        results['entry_time'] = pd.to_datetime(results['エントリー時間']) if 'エントリー時間' in results.columns else pd.to_datetime(results['entry_time'])
-        results['month'] = results['entry_time'].dt.strftime('%Y-%m')
-        
-        monthly_performance = results.groupby('month').agg(
-            net_profit=('profit_jpy', 'sum')
-        ).reset_index()
-        
         plt.figure(figsize=(12, 6))
-        plt.bar(monthly_performance['month'], monthly_performance['net_profit'])
+        
+        if profits is not None and isinstance(data, list):
+            months = data
+            plt.bar(months, profits)
+        elif isinstance(data, pd.DataFrame):
+            if data.empty:
+                return
+                
+            results = data.copy()
+            
+            if 'エントリー時間' in results.columns:
+                results['entry_time'] = pd.to_datetime(results['エントリー時間'])
+            elif 'entry_time' in results.columns:
+                results['entry_time'] = pd.to_datetime(results['entry_time'])
+            else:
+                results['entry_time'] = results.index
+                
+            results['month'] = results['entry_time'].dt.strftime('%Y-%m')
+            
+            monthly_performance = results.groupby('month').agg(
+                net_profit=('profit_jpy', 'sum')
+            ).reset_index()
+            
+            plt.bar(monthly_performance['month'], monthly_performance['net_profit'])
+        else:
+            raise ValueError("Invalid arguments for plot_monthly_returns")
+        
         plt.title('Monthly Returns')
         plt.xlabel('Month')
         plt.ylabel('Net Profit (JPY)')
@@ -187,6 +246,32 @@ class Visualizer:
         plt.legend()
         plt.grid(True)
         plt.savefig(os.path.join(self.output_dir, filename))
+        plt.close()
+    
+    def plot_equity_curves(self, equity_curves: pd.DataFrame, title: str = 'Equity Curves'):
+        """
+        複数のエクイティカーブを一つのグラフに表示する
+        
+        Parameters
+        ----------
+        equity_curves : pd.DataFrame
+            複数のエクイティカーブを含むDataFrame
+        title : str, default 'Equity Curves'
+            グラフのタイトル
+        """
+        plt.figure(figsize=(12, 6))
+        
+        for column in equity_curves.columns:
+            plt.plot(equity_curves.index, equity_curves[column], label=column)
+        
+        plt.title(title)
+        plt.xlabel('Date')
+        plt.ylabel('Equity (JPY)')
+        plt.grid(True)
+        plt.legend()
+        
+        file_name = f"{title.replace(' ', '_').lower()}.png"
+        plt.savefig(os.path.join(self.output_dir, file_name))
         plt.close()
     
     def create_performance_summary(self, results: pd.DataFrame, initial_balance: float = 200000) -> Dict:
