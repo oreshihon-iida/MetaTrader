@@ -86,11 +86,11 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
         ma_slope = (df['ma_50'].iloc[i] - df['ma_50'].iloc[i-10]) / 10
         ma_slope_normalized = abs(ma_slope) / df['Close'].iloc[i] * 1000  # 1000pipsあたりの傾き
         
-        if atr_ratio > 1.5:
+        if atr_ratio > 1.8:  # 1.5から1.8に緩和
             return 'volatile'  # ボラティリティが高い
-        elif ma_slope_normalized > 0.5:
+        elif ma_slope_normalized > 0.4:  # 0.5から0.4に緩和して検出率を向上
             return 'trending'  # トレンドが強い
-        elif price_change_ratio < 0.3:
+        elif price_change_ratio < 0.25:  # 0.3から0.25に厳格化してレンジ相場の精度を向上
             return 'ranging'   # レンジ相場
         else:
             return 'normal'    # 通常の市場環境
@@ -111,32 +111,32 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
         """
         params = {
             'normal': {
-                'rsi_upper': 70,  # 取引数を増やすためにRSI閾値を緩和
+                'rsi_upper': 70,
                 'rsi_lower': 30,
                 'bb_dev': 2.0,
                 'sl_pips': 2.0,
                 'tp_pips': 10.0
             },
             'trending': {
-                'rsi_upper': 75,  # トレンド相場でもRSI閾値を緩和
+                'rsi_upper': 80,  # 75から80に変更してトレンド相場での逆張りを抑制
                 'rsi_lower': 25,
-                'bb_dev': 2.2,    # バンド幅を広げる
-                'sl_pips': 2.5,   # 損切り幅を広げる
-                'tp_pips': 12.5   # 利確幅も広げる
+                'bb_dev': 2.2,
+                'sl_pips': 2.5,
+                'tp_pips': 12.5
             },
             'volatile': {
-                'rsi_upper': 80,  # ボラティリティが高い場合もRSI閾値を緩和
-                'rsi_lower': 20,
-                'bb_dev': 2.5,    # バンド幅をさらに広げる
-                'sl_pips': 3.0,   # 損切り幅をさらに広げる
-                'tp_pips': 15.0   # 利確幅も広げる
+                'rsi_upper': 85,  # 80から85に変更して高ボラティリティ環境での逆張りを抑制
+                'rsi_lower': 15,  # 20から15に変更して高ボラティリティ環境での極端な値を許容
+                'bb_dev': 2.5,
+                'sl_pips': 3.0,
+                'tp_pips': 15.0
             },
             'ranging': {
-                'rsi_upper': 65,  # レンジ相場ではRSI閾値をさらに緩和
+                'rsi_upper': 65,  # レンジ相場でのRSI閾値を維持
                 'rsi_lower': 35,
-                'bb_dev': 1.8,    # バンド幅を狭める
-                'sl_pips': 1.5,   # 損切り幅を狭める
-                'tp_pips': 7.5    # 利確幅も狭める
+                'bb_dev': 1.6,  # 1.8から1.6に変更してレンジ相場でのシグナル精度を向上
+                'sl_pips': 1.5,
+                'tp_pips': 7.5
             }
         }
         
@@ -166,8 +166,11 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
         ma_100 = df['ma_100'].iloc[i]
         
         if df['rsi'].iloc[i] < self.rsi_lower and df['Close'].iloc[i] < df['lower_band'].iloc[i]:
+            
             if ma_20 < ma_50 < ma_100:
-                return False
+                ma_slope = (ma_20 - df['ma_20'].iloc[i-10]) / 10 if i >= 10 else 0
+                if ma_slope < -0.0005:  # 強い下降傾向のみ除外
+                    return False
                 
             if df['ma_20'].iloc[i] > df['ma_20'].iloc[i-5]:
                 if df['Close'].iloc[i] > ma_20:
@@ -181,8 +184,11 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
                 return True
         
         elif df['rsi'].iloc[i] > self.rsi_upper and df['Close'].iloc[i] > df['upper_band'].iloc[i]:
+            
             if ma_20 > ma_50 > ma_100:
-                return False
+                ma_slope = (ma_20 - df['ma_20'].iloc[i-10]) / 10 if i >= 10 else 0
+                if ma_slope > 0.0005:  # 強い上昇傾向のみ除外
+                    return False
                 
             if df['ma_20'].iloc[i] < df['ma_20'].iloc[i-5]:
                 if df['Close'].iloc[i] < ma_20:
@@ -195,7 +201,7 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
                 df['Close'].iloc[i] < df['Open'].iloc[i]):
                 return True
         
-        return False  # デフォルトではフィルターを通過しない（より厳格に）
+        return False  # デフォルトではフィルターを通過しない
     
     def _apply_time_filter(self, df: pd.DataFrame, i: int) -> bool:
         """
@@ -220,17 +226,16 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
         weekday = df.index[i].weekday()  # 0=月曜日, 6=日曜日
         month = df.index[i].month
         
-        if not ((0 <= hour < 8) or (8 <= hour < 16)):
+        if not ((1 <= hour < 6) or (8 <= hour < 10)):  # UTCで調整
             return False
         
-        if weekday == 0 or weekday == 4:  # 月曜日または金曜日
-            if (weekday == 0 and hour < 4) or (weekday == 4 and hour > 14):
+        if weekday == 0 or weekday == 4:
+            if (weekday == 0 and hour < 3) or (weekday == 4 and hour > 12):
                 return False
         
-        if month in [2]:  # 2月のみ除外
+        if month in [2, 8]:
             return False
             
-        # デフォルトではフィルターを通過する（より緩和）
         return True
     
     def _check_price_action_patterns(self, df: pd.DataFrame, i: int) -> bool:
@@ -405,10 +410,10 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
             atr = df['atr'].iloc[i]
             avg_atr = df['atr'].iloc[i-20:i].mean()
             
-            if atr < avg_atr * 0.7:  # ボラティリティ下限を緩和（0.8→0.7）
+            if atr < avg_atr * 0.6:  # 0.7から0.6に緩和してより多くのシグナルを許可
                 return False
             
-            if atr > avg_atr * 1.8:  # ボラティリティ上限を緩和（1.5→1.8）
+            if atr > avg_atr * 2.0:  # 1.8から2.0に緩和して極端な高ボラティリティでも取引可能に
                 return False
         
         if self.time_filter and not self._apply_time_filter(df, i):
@@ -417,7 +422,7 @@ class HighPerformanceStrategy(BollingerRsiEnhancedMTStrategy):
         if self.use_seasonal_filter:
             month = df.index[i].month
             
-            if month in [2, 6, 11, 12]:  # 2月、6月、11月、12月を除外
+            if month in [2, 6, 8, 12]:  # 2月、6月、8月、12月を除外（低流動性またはボラティリティが不安定な月）
                 return False
         
         # 7. 価格アクションパターン

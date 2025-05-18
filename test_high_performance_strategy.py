@@ -94,13 +94,17 @@ try:
         losses = backtest_results['losses']
         win_rate = backtest_results['win_rate']
         profit_factor = backtest_results['profit_factor']
+        risk_reward_ratio = backtest_results['risk_reward_ratio']
+        breakeven_win_rate = backtest_results['breakeven_win_rate']
         net_profit = backtest_results['net_profit']
         position_limit_reached_count = backtest_results['position_limit_reached_count']
         
         logger.info(f"{test_year}年のバックテスト結果:")
         logger.info(f"総トレード数: {trades}")
         logger.info(f"勝率: {win_rate:.2f}%")
+        logger.info(f"損益分岐点勝率: {breakeven_win_rate:.2f}%")
         logger.info(f"プロフィットファクター: {profit_factor:.2f}")
+        logger.info(f"リスク・リワード比: {risk_reward_ratio:.2f}")
         logger.info(f"純利益: {net_profit:.2f}")
         logger.info(f"ポジション制限到達回数: {position_limit_reached_count}")
         
@@ -110,7 +114,9 @@ try:
             'wins': wins,
             'losses': losses,
             'win_rate': win_rate,
+            'breakeven_win_rate': breakeven_win_rate,
             'profit_factor': profit_factor,
+            'risk_reward_ratio': risk_reward_ratio,
             'net_profit': net_profit,
             'position_limit_reached_count': position_limit_reached_count
         })
@@ -152,15 +158,19 @@ try:
             f.write(f"| --- | --- |\n")
             f.write(f"| 総トレード数 | {total_trades} |\n")
             f.write(f"| 勝率 | {total_win_rate:.2f}% |\n")
+            
+            avg_breakeven_win_rate = sum(r['breakeven_win_rate'] for r in all_results) / len(all_results) if all_results else 0
+            f.write(f"| 損益分岐点勝率 | {avg_breakeven_win_rate:.2f}% |\n")
+            
             f.write(f"| 純利益 | {total_profit:.2f} |\n")
             f.write(f"| ポジション制限到達回数 | {total_position_limit_reached} |\n\n")
             
             f.write(f"## 年別結果\n\n")
-            f.write(f"| 年 | トレード数 | 勝率 (%) | プロフィットファクター | 純利益 | ポジション制限到達回数 |\n")
-            f.write(f"| --- | --- | --- | --- | --- | --- |\n")
+            f.write(f"| 年 | トレード数 | 勝率 (%) | 損益分岐点勝率 (%) | プロフィットファクター | リスク・リワード比 | 純利益 | ポジション制限到達回数 |\n")
+            f.write(f"| --- | --- | --- | --- | --- | --- | --- | --- |\n")
             
-            for result in all_results:
-                f.write(f"| {result['year']} | {result['trades']} | {result['win_rate']:.2f} | {result['profit_factor']:.2f} | {result['net_profit']:.2f} | {result['position_limit_reached_count']} |\n")
+            for result in all_results: 
+                f.write(f"| {result['year']} | {result['trades']} | {result['win_rate']:.2f} | {result['breakeven_win_rate']:.2f} | {result['profit_factor']:.2f} | {result['risk_reward_ratio']:.2f} | {result['net_profit']:.2f} | {result['position_limit_reached_count']} |\n")
             
             f.write(f"\n## パラメータ設定\n\n")
             f.write(f"| パラメータ | 値 | 説明 |\n")
