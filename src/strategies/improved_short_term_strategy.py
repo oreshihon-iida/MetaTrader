@@ -26,11 +26,11 @@ class ImprovedShortTermStrategy(ShortTermBollingerRsiStrategy):
             'rsi_window': 14,
             'rsi_upper': 60,        # RSI閾値を55から60に調整して高品質シグナルに限定
             'rsi_lower': 40,        # RSI閾値を45から40に調整して高品質シグナルに限定
-            'sl_pips': 3.0,         # 損切り幅は維持
-            'tp_pips': 7.5,         # 利確幅を6.0から7.5に拡大してリスク・リワード比を改善
+            'sl_pips': 2.5,         # 損切り幅を3.0から2.5に縮小して損失を抑制
+            'tp_pips': 8.0,         # 利確幅を7.5から8.0に拡大してリスク・リワード比を改善
             'atr_window': 14,
-            'atr_sl_multiplier': 0.8,
-            'atr_tp_multiplier': 2.0,  # ATRベースの利確乗数を1.6から2.0に拡大
+            'atr_sl_multiplier': 0.7,  # ATRベースの損切り乗数を0.8から0.7に縮小
+            'atr_tp_multiplier': 2.2,  # ATRベースの利確乗数を2.0から2.2に拡大
             'use_adaptive_params': True,
             'trend_filter': False,
             'vol_filter': True,     # ボラティリティフィルターを有効化して高ボラティリティ時のみ取引
