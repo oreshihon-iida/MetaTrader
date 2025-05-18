@@ -693,3 +693,30 @@ class ImprovedShortTermStrategy(ShortTermBollingerRsiStrategy):
             検出されたパターンタイプのセット
         """
         self.update_consecutive_stats(is_win, pattern_types)
+        
+    def _associate_patterns_with_signals(self, signals_df: pd.DataFrame) -> None:
+        """
+        検出されたパターンをシグナルと関連付ける
+        
+        Parameters
+        ----------
+        signals_df : pd.DataFrame
+            シグナルが追加されたDataFrame
+        """
+        if not hasattr(self, 'active_trade_patterns'):
+            return
+            
+        for i in range(len(signals_df)):
+            if signals_df['signal'].iloc[i] != 0:
+                entry_time = signals_df.index[i]
+                
+                if self.use_price_action and hasattr(self, '_check_price_action_patterns'):
+                    try:
+                        result = self._check_price_action_patterns(signals_df, i)
+                        
+                        if isinstance(result, tuple) and len(result) == 2:
+                            pattern_detected, patterns = result
+                            if pattern_detected and patterns:
+                                self.active_trade_patterns[entry_time] = patterns
+                    except Exception as e:
+                        print(f"パターン関連付け中にエラーが発生しました: {str(e)}")
