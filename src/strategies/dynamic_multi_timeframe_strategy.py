@@ -26,27 +26,32 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.confirmation_threshold = kwargs.pop('confirmation_threshold', 0.4)  # 確認閾値（デフォルト0.4）
         self.expand_time_filter = kwargs.pop('expand_time_filter', False)  # 時間フィルターの拡大（デフォルトFalse）
         self.disable_time_filter = kwargs.pop('disable_time_filter', False)  # 時間フィルターの無効化（デフォルトFalse）
+        self.disable_multi_timeframe = kwargs.pop('disable_multi_timeframe', False)  # 複数時間足確認の無効化（デフォルトFalse）
+        self.use_price_only_signals = kwargs.pop('use_price_only_signals', False)  # 価格のみに基づくシグナル生成（デフォルトFalse）
+        self.use_moving_average = kwargs.pop('use_moving_average', False)  # 移動平均を使用（デフォルトFalse）
+        self.ma_fast_period = kwargs.pop('ma_fast_period', 5)  # 短期移動平均期間
+        self.ma_slow_period = kwargs.pop('ma_slow_period', 20)  # 長期移動平均期間
         
         default_params = {
             'bb_window': 20,
-            'bb_dev': 1.3,    # 1.4から1.3に調整してさらにバンドに触れる頻度を増加
-            'rsi_window': 14,
-            'rsi_upper': 50,  # 51から50に調整してさらに取引機会を増加
-            'rsi_lower': 50,  # 49から50に調整してさらに取引機会を増加
+            'bb_dev': 0.8,    # 1.0から0.8に縮小してさらにバンドに触れる頻度を大幅増加
+            'rsi_window': 7,  # 14から7に短縮して反応速度を上げる
+            'rsi_upper': 50,  # 中立値を維持
+            'rsi_lower': 50,  # 中立値を維持
             'sl_pips': 2.5,
             'tp_pips': 12.5,
             'atr_window': 14,
             'atr_sl_multiplier': 0.8,
             'atr_tp_multiplier': 2.0,
             'use_adaptive_params': True,
-            'trend_filter': False,  # トレンドフィルターを無効化して取引機会を増加
-            'vol_filter': False,    # ボラティリティフィルターを無効化して取引機会を増加
-            'time_filter': True,
-            'use_multi_timeframe': True,
-            'timeframe_weights': {'15min': 1.0},  # 一時的に15分足のみに簡略化
-            'use_seasonal_filter': False,  # 季節性フィルターを無効化して取引機会を増加
-            'use_price_action': False,     # 価格アクションフィルターを無効化して取引機会を増加
-            'consecutive_limit': 2
+            'trend_filter': False,  # トレンドフィルターを無効化
+            'vol_filter': False,    # ボラティリティフィルターを無効化
+            'time_filter': False,   # 時間フィルターをデフォルトで無効化
+            'use_multi_timeframe': False,  # 複数時間足確認をデフォルトで無効化
+            'timeframe_weights': {'15min': 1.0},  # 15分足のみを使用
+            'use_seasonal_filter': False,  # 季節性フィルターを無効化
+            'use_price_action': False,     # 価格アクションフィルターを無効化
+            'consecutive_limit': 1  # 連続シグナル制限を1に緩和
         }
         
         for key, value in default_params.items():
@@ -64,6 +69,36 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             'ny': {'rsi_upper': 56, 'rsi_lower': 44, 'bb_dev': 1.6},        # NY時間は58/42→56/44に調整
             'overlap': {'rsi_upper': 51, 'rsi_lower': 49, 'bb_dev': 1.4},   # オーバーラップ時間は53/47→51/49に調整
         }
+        
+    def _calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        テクニカル指標を計算する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+            
+        Returns
+        -------
+        pd.DataFrame
+            テクニカル指標を含むデータフレーム
+        """
+        df = super()._calculate_technical_indicators(df)
+        
+        if self.use_moving_average:
+            df['ma_fast'] = df['Close'].rolling(window=self.ma_fast_period).mean()
+            df['ma_slow'] = df['Close'].rolling(window=self.ma_slow_period).mean()
+            df['ma_cross'] = 0
+            
+            for i in range(1, len(df)):
+                if pd.notna(df['ma_fast'].iloc[i-1]) and pd.notna(df['ma_slow'].iloc[i-1]) and pd.notna(df['ma_fast'].iloc[i]) and pd.notna(df['ma_slow'].iloc[i]):
+                    if df['ma_fast'].iloc[i-1] < df['ma_slow'].iloc[i-1] and df['ma_fast'].iloc[i] >= df['ma_slow'].iloc[i]:
+                        df.loc[df.index[i], 'ma_cross'] = 1  # ゴールデンクロス（買い）
+                    elif df['ma_fast'].iloc[i-1] > df['ma_slow'].iloc[i-1] and df['ma_fast'].iloc[i] <= df['ma_slow'].iloc[i]:
+                        df.loc[df.index[i], 'ma_cross'] = -1  # デッドクロス（売り）
+        
+        return df
         
     def generate_signals(self, data: pd.DataFrame, year: int, data_dir: str) -> pd.DataFrame:
         """
@@ -137,6 +172,38 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             if not self._apply_filters(df, i):
                 continue
             
+            if self.use_price_only_signals:
+                if i >= 3:  # 少なくとも3つの過去の価格ポイントが必要
+                    if (df['Close'].iloc[i-3] < df['Close'].iloc[i-2] < df['Close'].iloc[i-1] < df['Close'].iloc[i]):
+                        df.loc[df.index[i], 'signal'] = -1
+                        df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                        df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] + self.sl_pips * 0.01
+                        df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] - self.tp_pips * 0.01
+                        df.loc[df.index[i], 'strategy'] = f"{self.name} (価格のみ)"
+                    elif (df['Close'].iloc[i-3] > df['Close'].iloc[i-2] > df['Close'].iloc[i-1] > df['Close'].iloc[i]):
+                        df.loc[df.index[i], 'signal'] = 1
+                        df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                        df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] - self.sl_pips * 0.01
+                        df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
+                        df.loc[df.index[i], 'strategy'] = f"{self.name} (価格のみ)"
+                continue  # 価格のみのシグナル生成を使用する場合は、他のシグナル生成ロジックをスキップ
+            
+            if self.use_moving_average and 'ma_cross' in df.columns:
+                if df['ma_cross'].iloc[i] == 1:  # ゴールデンクロス（買い）
+                    df.loc[df.index[i], 'signal'] = 1
+                    df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                    df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] - self.sl_pips * 0.01
+                    df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
+                    df.loc[df.index[i], 'strategy'] = f"{self.name} (MA)"
+                    continue  # 移動平均シグナルが生成された場合は、他のシグナル生成ロジックをスキップ
+                elif df['ma_cross'].iloc[i] == -1:  # デッドクロス（売り）
+                    df.loc[df.index[i], 'signal'] = -1
+                    df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                    df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] + self.sl_pips * 0.01
+                    df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] - self.tp_pips * 0.01
+                    df.loc[df.index[i], 'strategy'] = f"{self.name} (MA)"
+                    continue  # 移動平均シグナルが生成された場合は、他のシグナル生成ロジックをスキップ
+            
             rsi_upper_adjusted = self.rsi_upper
             rsi_lower_adjusted = self.rsi_lower
             bb_multiplier = 1.0
@@ -156,13 +223,13 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                     rsi_lower_adjusted = self.rsi_lower + 5
                     bb_multiplier = 1.1
             
-            if (df['Close'].iloc[i] <= df['bb_lower'].iloc[i] * bb_multiplier and 
-                df['rsi'].iloc[i] <= rsi_lower_adjusted):
+            if (df['Close'].iloc[i] <= df['bb_lower'].iloc[i] * 1.2 and 
+                df['rsi'].iloc[i] <= 60):  # RSI条件も大幅に緩和
                 
                 if self.use_price_action and not self._check_price_action_patterns(df, i):
                     continue
                 
-                if self.use_multi_timeframe and multi_tf_data:
+                if self.use_multi_timeframe and multi_tf_data and not self.disable_multi_timeframe:
                     if not self._check_multi_timeframe(df, i, multi_tf_data, 1):
                         continue
                 
@@ -170,15 +237,15 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                 df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
                 df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] - self.sl_pips * 0.01
                 df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
-                df.loc[df.index[i], 'strategy'] = self.name
+                df.loc[df.index[i], 'strategy'] = f"{self.name} (BB+RSI)"
             
-            elif (df['Close'].iloc[i] >= df['bb_upper'].iloc[i] * (2 - bb_multiplier) and 
-                  df['rsi'].iloc[i] >= rsi_upper_adjusted):
+            elif (df['Close'].iloc[i] >= df['bb_upper'].iloc[i] * 0.8 and 
+                  df['rsi'].iloc[i] >= 40):  # RSI条件も大幅に緩和
                 
                 if self.use_price_action and not self._check_price_action_patterns(df, i):
                     continue
                 
-                if self.use_multi_timeframe and multi_tf_data:
+                if self.use_multi_timeframe and multi_tf_data and not self.disable_multi_timeframe:
                     if not self._check_multi_timeframe(df, i, multi_tf_data, -1):
                         continue
                 
@@ -186,7 +253,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                 df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
                 df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] + self.sl_pips * 0.01
                 df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] - self.tp_pips * 0.01
-                df.loc[df.index[i], 'strategy'] = self.name
+                df.loc[df.index[i], 'strategy'] = f"{self.name} (BB+RSI)"
         
         return df
     

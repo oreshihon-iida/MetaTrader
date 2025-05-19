@@ -18,8 +18,8 @@ logger.log_info("動的複数時間足戦略のバックテスト開始")
 
 strategy = DynamicMultiTimeframeStrategy(
     bb_window=20,
-    bb_dev=1.0,    # 1.2から1.0に縮小してさらにバンドに触れる頻度を大幅増加
-    rsi_window=14,
+    bb_dev=0.8,    # 1.0から0.8に縮小してさらにバンドに触れる頻度を極限まで増加
+    rsi_window=7,  # 14から7に短縮して反応速度を上げる
     rsi_upper=50,  # 50のまま維持
     rsi_lower=50,  # 50のまま維持
     sl_pips=2.5,
@@ -28,9 +28,14 @@ strategy = DynamicMultiTimeframeStrategy(
     market_regime_detection=True,
     dynamic_timeframe_weights=True,
     volatility_based_params=True,
-    confirmation_threshold=0.2,  # 30%から20%に引き下げてさらに多くのシグナルを通過させる
-    expand_time_filter=True,     # 取引時間をさらに拡大
-    disable_time_filter=True     # 時間フィルターを完全に無効化して24時間取引を許可
+    confirmation_threshold=0.2,  # 確認閾値を20%に維持
+    expand_time_filter=True,     # 取引時間を拡大
+    disable_time_filter=True,    # 時間フィルターを無効化して24時間取引を許可
+    disable_multi_timeframe=True,  # 複数時間足確認を無効化して単一時間足でのシグナル生成を許可
+    use_price_only_signals=True,   # 価格のみに基づくシグナル生成を有効化（新機能）
+    use_moving_average=True,       # 移動平均クロスオーバーシグナルを有効化（新機能）
+    ma_fast_period=5,              # 短期移動平均期間
+    ma_slow_period=20              # 長期移動平均期間
 )
 
 years = [int(year) for year in args.years.split(',')]
