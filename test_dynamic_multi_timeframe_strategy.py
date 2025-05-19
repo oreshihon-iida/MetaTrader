@@ -18,16 +18,29 @@ logger.log_info("動的複数時間足戦略のバックテスト開始")
 
 strategy = DynamicMultiTimeframeStrategy(
     bb_window=20,
-    bb_dev=1.5,    # 1.6から1.5に調整してバンドに触れる頻度を増加
-    rsi_window=14,
-    rsi_upper=53,  # 55から53に調整して取引機会を増加
-    rsi_lower=47,  # 45から47に調整して取引機会を増加
+    bb_dev=0.8,    # 1.0から0.8に縮小してさらにバンドに触れる頻度を極限まで増加
+    rsi_window=7,  # 14から7に短縮して反応速度を上げる
+    rsi_upper=50,  # 50のまま維持
+    rsi_lower=50,  # 50のまま維持
     sl_pips=2.5,
     tp_pips=12.5,
-    timeframe_weights={'5min': 2.0, '15min': 1.0, '30min': 0.5},
+    timeframe_weights={'5min': 2.0, '15min': 1.0, '30min': 0.5, '1H': 0.5, '1min': 0.5},  # 1分足を追加
     market_regime_detection=True,
     dynamic_timeframe_weights=True,
-    volatility_based_params=True
+    volatility_based_params=True,
+    confirmation_threshold=0.2,  # 確認閾値を20%に維持
+    expand_time_filter=True,     # 取引時間を拡大
+    disable_time_filter=True,    # 時間フィルターを無効化して24時間取引を許可
+    disable_multi_timeframe=True,  # 複数時間足確認を無効化して単一時間足でのシグナル生成を許可
+    use_price_only_signals=True,   # 価格のみに基づくシグナル生成を有効化（新機能）
+    use_moving_average=True,       # 移動平均クロスオーバーシグナルを有効化（新機能）
+    ma_fast_period=5,              # 短期移動平均期間
+    ma_slow_period=20,             # 長期移動平均期間
+    use_adx_filter=False,          # ADXフィルターを無効化（取引数を増やすため）
+    adx_threshold=15,              # ADX閾値を15に引き下げ（使用する場合）
+    use_pattern_filter=False,      # パターンフィルターを無効化（取引数を増やすため）
+    use_quality_filter=True,       # 品質フィルターを有効化（勝率向上のため）
+    quality_threshold=0.3          # 品質閾値を0.3に引き下げ（より多くのシグナルを許可）
 )
 
 years = [int(year) for year in args.years.split(',')]
@@ -72,9 +85,9 @@ for year in years:
     
     backtest = CustomBacktestEngine(
         data=signals,
-        initial_balance=100000,
-        lot_size=0.01,
-        max_positions=5,
+        initial_balance=2000000,  # 100000から2000000に変更
+        lot_size=0.01,            # 0.02から0.01に戻す
+        max_positions=5,          # 5のまま維持
         spread_pips=0.2
     )
     

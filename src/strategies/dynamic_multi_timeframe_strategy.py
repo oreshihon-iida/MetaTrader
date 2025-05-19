@@ -23,27 +23,40 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.market_regime_detection = kwargs.pop('market_regime_detection', True)
         self.dynamic_timeframe_weights = kwargs.pop('dynamic_timeframe_weights', True)
         self.volatility_based_params = kwargs.pop('volatility_based_params', True)
+        self.confirmation_threshold = kwargs.pop('confirmation_threshold', 0.4)  # 確認閾値（デフォルト0.4）
+        self.expand_time_filter = kwargs.pop('expand_time_filter', False)  # 時間フィルターの拡大（デフォルトFalse）
+        self.disable_time_filter = kwargs.pop('disable_time_filter', False)  # 時間フィルターの無効化（デフォルトFalse）
+        self.disable_multi_timeframe = kwargs.pop('disable_multi_timeframe', False)  # 複数時間足確認の無効化（デフォルトFalse）
+        self.use_price_only_signals = kwargs.pop('use_price_only_signals', False)  # 価格のみに基づくシグナル生成（デフォルトFalse）
+        self.use_moving_average = kwargs.pop('use_moving_average', False)  # 移動平均を使用（デフォルトFalse）
+        self.ma_fast_period = kwargs.pop('ma_fast_period', 5)  # 短期移動平均期間
+        self.ma_slow_period = kwargs.pop('ma_slow_period', 20)  # 長期移動平均期間
+        self.use_adx_filter = kwargs.pop('use_adx_filter', False)  # ADXフィルターを使用（デフォルトFalse）
+        self.adx_threshold = kwargs.pop('adx_threshold', 25)  # ADX閾値（デフォルト25）
+        self.use_pattern_filter = kwargs.pop('use_pattern_filter', False)  # パターンフィルターを使用（デフォルトFalse）
+        self.use_quality_filter = kwargs.pop('use_quality_filter', False)  # 品質フィルターを使用（デフォルトFalse）
+        self.quality_threshold = kwargs.pop('quality_threshold', 0.7)  # 品質閾値（デフォルト0.7）
         
         default_params = {
             'bb_window': 20,
-            'bb_dev': 1.5,    # 1.6から1.5に調整してバンドに触れる頻度を増加
-            'rsi_window': 14,
-            'rsi_upper': 53,  # 55から53に調整して取引機会を増加
-            'rsi_lower': 47,  # 45から47に調整して取引機会を増加
+            'bb_dev': 0.8,    # 1.0から0.8に縮小してさらにバンドに触れる頻度を大幅増加
+            'rsi_window': 7,  # 14から7に短縮して反応速度を上げる
+            'rsi_upper': 50,  # 中立値を維持
+            'rsi_lower': 50,  # 中立値を維持
             'sl_pips': 2.5,
             'tp_pips': 12.5,
             'atr_window': 14,
             'atr_sl_multiplier': 0.8,
             'atr_tp_multiplier': 2.0,
             'use_adaptive_params': True,
-            'trend_filter': True,
-            'vol_filter': True,
-            'time_filter': True,
-            'use_multi_timeframe': True,
-            'timeframe_weights': {'5min': 2.0, '15min': 1.0, '30min': 0.5},  # 30分足も追加
-            'use_seasonal_filter': True,  # 季節性フィルターを有効化
-            'use_price_action': True,
-            'consecutive_limit': 2
+            'trend_filter': False,  # トレンドフィルターを無効化
+            'vol_filter': False,    # ボラティリティフィルターを無効化
+            'time_filter': False,   # 時間フィルターをデフォルトで無効化
+            'use_multi_timeframe': False,  # 複数時間足確認をデフォルトで無効化
+            'timeframe_weights': {'15min': 1.0},  # 15分足のみを使用
+            'use_seasonal_filter': False,  # 季節性フィルターを無効化
+            'use_price_action': False,     # 価格アクションフィルターを無効化
+            'consecutive_limit': 1  # 連続シグナル制限を1に緩和
         }
         
         for key, value in default_params.items():
@@ -61,6 +74,36 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             'ny': {'rsi_upper': 56, 'rsi_lower': 44, 'bb_dev': 1.6},        # NY時間は58/42→56/44に調整
             'overlap': {'rsi_upper': 51, 'rsi_lower': 49, 'bb_dev': 1.4},   # オーバーラップ時間は53/47→51/49に調整
         }
+        
+    def _calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        テクニカル指標を計算する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+            
+        Returns
+        -------
+        pd.DataFrame
+            テクニカル指標を含むデータフレーム
+        """
+        df = super()._calculate_technical_indicators(df)
+        
+        if self.use_moving_average:
+            df['ma_fast'] = df['Close'].rolling(window=self.ma_fast_period).mean()
+            df['ma_slow'] = df['Close'].rolling(window=self.ma_slow_period).mean()
+            df['ma_cross'] = 0
+            
+            for i in range(1, len(df)):
+                if pd.notna(df['ma_fast'].iloc[i-1]) and pd.notna(df['ma_slow'].iloc[i-1]) and pd.notna(df['ma_fast'].iloc[i]) and pd.notna(df['ma_slow'].iloc[i]):
+                    if df['ma_fast'].iloc[i-1] < df['ma_slow'].iloc[i-1] and df['ma_fast'].iloc[i] >= df['ma_slow'].iloc[i]:
+                        df.loc[df.index[i], 'ma_cross'] = 1  # ゴールデンクロス（買い）
+                    elif df['ma_fast'].iloc[i-1] > df['ma_slow'].iloc[i-1] and df['ma_fast'].iloc[i] <= df['ma_slow'].iloc[i]:
+                        df.loc[df.index[i], 'ma_cross'] = -1  # デッドクロス（売り）
+        
+        return df
         
     def generate_signals(self, data: pd.DataFrame, year: int, data_dir: str) -> pd.DataFrame:
         """
@@ -122,13 +165,49 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             if consecutive_signals >= self.consecutive_limit:
                 continue
             
-            if self.time_filter:
+            if self.time_filter and not self.disable_time_filter:
                 hour = df.index[i].hour
-                if not ((0 <= hour < 3) or (8 <= hour < 11) or (13 <= hour < 16)):
-                    continue
+                if self.expand_time_filter:
+                    if not ((0 <= hour < 3) or (4 <= hour < 21)):
+                        continue
+                else:
+                    if not ((0 <= hour < 3) or (5 <= hour < 7) or (8 <= hour < 11) or (13 <= hour < 16) or (17 <= hour < 20)):
+                        continue
                     
             if not self._apply_filters(df, i):
                 continue
+            
+            if self.use_price_only_signals:
+                if i >= 3:  # 少なくとも3つの過去の価格ポイントが必要
+                    if (df['Close'].iloc[i-3] < df['Close'].iloc[i-2] < df['Close'].iloc[i-1] < df['Close'].iloc[i]):
+                        df.loc[df.index[i], 'signal'] = -1
+                        df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                        df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] + self.sl_pips * 0.01
+                        df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] - self.tp_pips * 0.01
+                        df.loc[df.index[i], 'strategy'] = f"{self.name} (価格のみ)"
+                    elif (df['Close'].iloc[i-3] > df['Close'].iloc[i-2] > df['Close'].iloc[i-1] > df['Close'].iloc[i]):
+                        df.loc[df.index[i], 'signal'] = 1
+                        df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                        df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] - self.sl_pips * 0.01
+                        df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
+                        df.loc[df.index[i], 'strategy'] = f"{self.name} (価格のみ)"
+                continue  # 価格のみのシグナル生成を使用する場合は、他のシグナル生成ロジックをスキップ
+            
+            if self.use_moving_average and 'ma_cross' in df.columns:
+                if df['ma_cross'].iloc[i] == 1:  # ゴールデンクロス（買い）
+                    df.loc[df.index[i], 'signal'] = 1
+                    df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                    df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] - self.sl_pips * 0.01
+                    df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
+                    df.loc[df.index[i], 'strategy'] = f"{self.name} (MA)"
+                    continue  # 移動平均シグナルが生成された場合は、他のシグナル生成ロジックをスキップ
+                elif df['ma_cross'].iloc[i] == -1:  # デッドクロス（売り）
+                    df.loc[df.index[i], 'signal'] = -1
+                    df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                    df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] + self.sl_pips * 0.01
+                    df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] - self.tp_pips * 0.01
+                    df.loc[df.index[i], 'strategy'] = f"{self.name} (MA)"
+                    continue  # 移動平均シグナルが生成された場合は、他のシグナル生成ロジックをスキップ
             
             rsi_upper_adjusted = self.rsi_upper
             rsi_lower_adjusted = self.rsi_lower
@@ -149,13 +228,13 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                     rsi_lower_adjusted = self.rsi_lower + 5
                     bb_multiplier = 1.1
             
-            if (df['Close'].iloc[i] <= df['bb_lower'].iloc[i] * bb_multiplier and 
-                df['rsi'].iloc[i] <= rsi_lower_adjusted):
+            if (df['Close'].iloc[i] <= df['bb_lower'].iloc[i] * 1.2 and 
+                df['rsi'].iloc[i] <= 60):  # RSI条件も大幅に緩和
                 
                 if self.use_price_action and not self._check_price_action_patterns(df, i):
                     continue
                 
-                if self.use_multi_timeframe and multi_tf_data:
+                if self.use_multi_timeframe and multi_tf_data and not self.disable_multi_timeframe:
                     if not self._check_multi_timeframe(df, i, multi_tf_data, 1):
                         continue
                 
@@ -163,15 +242,15 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                 df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
                 df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] - self.sl_pips * 0.01
                 df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
-                df.loc[df.index[i], 'strategy'] = self.name
+                df.loc[df.index[i], 'strategy'] = f"{self.name} (BB+RSI)"
             
-            elif (df['Close'].iloc[i] >= df['bb_upper'].iloc[i] * (2 - bb_multiplier) and 
-                  df['rsi'].iloc[i] >= rsi_upper_adjusted):
+            elif (df['Close'].iloc[i] >= df['bb_upper'].iloc[i] * 0.8 and 
+                  df['rsi'].iloc[i] >= 40):  # RSI条件も大幅に緩和
                 
                 if self.use_price_action and not self._check_price_action_patterns(df, i):
                     continue
                 
-                if self.use_multi_timeframe and multi_tf_data:
+                if self.use_multi_timeframe and multi_tf_data and not self.disable_multi_timeframe:
                     if not self._check_multi_timeframe(df, i, multi_tf_data, -1):
                         continue
                 
@@ -179,7 +258,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                 df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
                 df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] + self.sl_pips * 0.01
                 df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] - self.tp_pips * 0.01
-                df.loc[df.index[i], 'strategy'] = self.name
+                df.loc[df.index[i], 'strategy'] = f"{self.name} (BB+RSI)"
         
         return df
     
@@ -377,15 +456,233 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             tf_row = tf_data.iloc[tf_idx]
             
             if direction == 1:
-                if (tf_row['Close'] <= tf_row['bb_lower'] * 1.03 and tf_row['rsi'] <= self.rsi_lower + 2):
+                if (tf_row['Close'] <= tf_row['bb_lower'] * 1.10 and tf_row['rsi'] <= self.rsi_lower + 10):  # 1.05→1.10、+5→+10
                     confirmation_count += weight
             else:
-                if (tf_row['Close'] >= tf_row['bb_upper'] * 0.97 and tf_row['rsi'] >= self.rsi_upper - 2):
+                if (tf_row['Close'] >= tf_row['bb_upper'] * 0.90 and tf_row['rsi'] >= self.rsi_upper - 10):  # 0.95→0.90、-5→-10
                     confirmation_count += weight
         
-        confirmation_threshold = total_weight * 0.5  # 50%以上の時間足で確認が必要（60%から引き下げ）
+        confirmation_threshold = total_weight * self.confirmation_threshold  # 設定された確認閾値を使用
         
         return confirmation_count >= confirmation_threshold
+    
+    def _apply_filters(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        各種フィルターを適用する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            フィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        if self.trend_filter:
+            if not self._check_trend_filter(df, i):
+                return False
+        
+        if self.vol_filter:
+            if not self._check_volatility_filter(df, i):
+                return False
+        
+        if self.use_adx_filter and 'adx' in df.columns:
+            if not self._check_adx_filter(df, i):
+                return False
+        
+        if self.use_pattern_filter:
+            if not self._check_pattern_filter(df, i):
+                return False
+        
+        if self.use_quality_filter:
+            if not self._check_quality_filter(df, i):
+                return False
+        
+        return True
+    
+    def _check_adx_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        ADXフィルターを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            ADXフィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        if 'adx' not in df.columns:
+            return True
+            
+        adx = df['adx'].iloc[i]
+        
+        if adx > self.adx_threshold:
+            return True
+            
+        return False
+    
+    def _check_pattern_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        パターンフィルターを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            パターンフィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        if i < 5:  # 少なくとも5つの過去の価格ポイントが必要
+            return False
+            
+        if self._is_pin_bar(df, i):
+            return True
+            
+        if self._is_engulfing(df, i):
+            return True
+            
+        return False
+    
+    def _is_pin_bar(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        ピンバーパターンを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            ピンバーパターンの場合はTrue、そうでない場合はFalse
+        """
+        body = abs(df['Close'].iloc[i] - df['Open'].iloc[i])
+        total_range = df['High'].iloc[i] - df['Low'].iloc[i]
+        
+        if total_range == 0:
+            return False
+            
+        body_ratio = body / total_range
+        
+        if body_ratio <= 0.3:
+            if df['Close'].iloc[i] > df['Open'].iloc[i] and (df['Close'].iloc[i] - df['Low'].iloc[i]) / total_range > 0.6:
+                return True
+                
+            if df['Close'].iloc[i] < df['Open'].iloc[i] and (df['High'].iloc[i] - df['Close'].iloc[i]) / total_range > 0.6:
+                return True
+                
+        return False
+    
+    def _is_engulfing(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        エンゲルフィングパターンを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            エンゲルフィングパターンの場合はTrue、そうでない場合はFalse
+        """
+        if i < 1:
+            return False
+            
+        if (df['Close'].iloc[i] > df['Open'].iloc[i] and  # 現在の足が陽線
+            df['Close'].iloc[i-1] < df['Open'].iloc[i-1] and  # 前の足が陰線
+            df['Close'].iloc[i] > df['Open'].iloc[i-1] and  # 現在の終値が前の始値より高い
+            df['Open'].iloc[i] < df['Close'].iloc[i-1]):  # 現在の始値が前の終値より低い
+            return True
+            
+        if (df['Close'].iloc[i] < df['Open'].iloc[i] and  # 現在の足が陰線
+            df['Close'].iloc[i-1] > df['Open'].iloc[i-1] and  # 前の足が陽線
+            df['Close'].iloc[i] < df['Open'].iloc[i-1] and  # 現在の終値が前の始値より低い
+            df['Open'].iloc[i] > df['Close'].iloc[i-1]):  # 現在の始値が前の終値より高い
+            return True
+            
+        return False
+    
+    def _check_quality_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        品質フィルターを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            品質フィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        quality_score = 0.0
+        total_factors = 0
+        
+        if 'rsi' in df.columns:
+            total_factors += 1
+            rsi = df['rsi'].iloc[i]
+            if rsi <= 30 or rsi >= 70:
+                quality_score += 1.0
+            elif rsi <= 35 or rsi >= 65:
+                quality_score += 0.7
+            elif rsi <= 40 or rsi >= 60:
+                quality_score += 0.4
+        
+        if 'bb_upper' in df.columns and 'bb_lower' in df.columns:
+            total_factors += 1
+            close = df['Close'].iloc[i]
+            bb_upper = df['bb_upper'].iloc[i]
+            bb_lower = df['bb_lower'].iloc[i]
+            
+            if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
+                quality_score += 1.0
+            elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
+                quality_score += 0.7
+            elif close >= bb_upper or close <= bb_lower:
+                quality_score += 0.4
+        
+        if 'adx' in df.columns:
+            total_factors += 1
+            adx = df['adx'].iloc[i]
+            
+            if adx >= 40:
+                quality_score += 1.0
+            elif adx >= 30:
+                quality_score += 0.7
+            elif adx >= 20:
+                quality_score += 0.4
+        
+        if self._is_pin_bar(df, i) or self._is_engulfing(df, i):
+            total_factors += 1
+            quality_score += 1.0
+        
+        final_score = quality_score / total_factors if total_factors > 0 else 0
+        
+        return final_score >= self.quality_threshold
     
     def calculate_position_size(self, signal: int, equity: float = 10000.0) -> float:
         """
