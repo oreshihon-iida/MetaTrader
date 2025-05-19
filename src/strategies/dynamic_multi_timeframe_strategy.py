@@ -20,6 +20,10 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         **kwargs
             ImprovedShortTermStrategyに渡すパラメータ
         """
+        self.market_regime_detection = kwargs.pop('market_regime_detection', True)
+        self.dynamic_timeframe_weights = kwargs.pop('dynamic_timeframe_weights', True)
+        self.volatility_based_params = kwargs.pop('volatility_based_params', True)
+        
         default_params = {
             'bb_window': 20,
             'bb_dev': 1.6,
@@ -39,10 +43,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             'timeframe_weights': {'5min': 2.0, '15min': 1.0, '30min': 0.5},  # 30分足も追加
             'use_seasonal_filter': True,  # 季節性フィルターを有効化
             'use_price_action': True,
-            'consecutive_limit': 2,
-            'market_regime_detection': True,  # 市場レジーム検出を有効化
-            'dynamic_timeframe_weights': True,  # 動的時間足重み付けを有効化
-            'volatility_based_params': True,    # ボラティリティに基づくパラメータ調整を有効化
+            'consecutive_limit': 2
         }
         
         for key, value in default_params.items():
@@ -51,10 +52,6 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         super().__init__(**kwargs)
         self.name = "動的複数時間足戦略"
-        
-        self.market_regime_detection = kwargs.get('market_regime_detection', True)
-        self.dynamic_timeframe_weights = kwargs.get('dynamic_timeframe_weights', True)
-        self.volatility_based_params = kwargs.get('volatility_based_params', True)
         
         self.current_regime = 'unknown'  # 'trend', 'range', 'volatile'
         
@@ -101,6 +98,8 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         df = data.copy()
         
+        df = self._calculate_technical_indicators(df)
+        
         if self.market_regime_detection:
             df = self._detect_market_regime(df)
         
@@ -137,8 +136,10 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                         continue
                 
                 df.loc[df.index[i], 'signal'] = 1
-                df.loc[df.index[i], 'sl'] = df['Close'].iloc[i] - self.sl_pips * 0.01
-                df.loc[df.index[i], 'tp'] = df['Close'].iloc[i] + self.tp_pips * 0.01
+                df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] - self.sl_pips * 0.01
+                df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
+                df.loc[df.index[i], 'strategy'] = self.name
             
             elif (df['Close'].iloc[i] >= df['bb_upper'].iloc[i] and 
                   df['rsi'].iloc[i] >= self.rsi_upper):
@@ -151,8 +152,10 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                         continue
                 
                 df.loc[df.index[i], 'signal'] = -1
-                df.loc[df.index[i], 'sl'] = df['Close'].iloc[i] + self.sl_pips * 0.01
-                df.loc[df.index[i], 'tp'] = df['Close'].iloc[i] - self.tp_pips * 0.01
+                df.loc[df.index[i], 'entry_price'] = df['Close'].iloc[i]
+                df.loc[df.index[i], 'sl_price'] = df['Close'].iloc[i] + self.sl_pips * 0.01
+                df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] - self.tp_pips * 0.01
+                df.loc[df.index[i], 'strategy'] = self.name
         
         return df
     
