@@ -18,10 +18,10 @@ logger.log_info("動的複数時間足戦略のバックテスト開始")
 
 strategy = DynamicMultiTimeframeStrategy(
     bb_window=20,
-    bb_dev=1.6,
+    bb_dev=1.5,    # 1.6から1.5に調整してバンドに触れる頻度を増加
     rsi_window=14,
-    rsi_upper=55,
-    rsi_lower=45,
+    rsi_upper=53,  # 55から53に調整して取引機会を増加
+    rsi_lower=47,  # 45から47に調整して取引機会を増加
     sl_pips=2.5,
     tp_pips=12.5,
     timeframe_weights={'5min': 2.0, '15min': 1.0, '30min': 0.5},

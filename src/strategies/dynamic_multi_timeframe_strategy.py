@@ -26,10 +26,10 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         default_params = {
             'bb_window': 20,
-            'bb_dev': 1.6,
+            'bb_dev': 1.5,    # 1.6から1.5に調整してバンドに触れる頻度を増加
             'rsi_window': 14,
-            'rsi_upper': 55,
-            'rsi_lower': 45,
+            'rsi_upper': 53,  # 55から53に調整して取引機会を増加
+            'rsi_lower': 47,  # 45から47に調整して取引機会を増加
             'sl_pips': 2.5,
             'tp_pips': 12.5,
             'atr_window': 14,
@@ -56,10 +56,10 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.current_regime = 'unknown'  # 'trend', 'range', 'volatile'
         
         self.time_based_params = {
-            'tokyo': {'rsi_upper': 60, 'rsi_lower': 40, 'bb_dev': 1.8},
-            'london': {'rsi_upper': 55, 'rsi_lower': 45, 'bb_dev': 1.6},
-            'ny': {'rsi_upper': 58, 'rsi_lower': 42, 'bb_dev': 1.7},
-            'overlap': {'rsi_upper': 53, 'rsi_lower': 47, 'bb_dev': 1.5},
+            'tokyo': {'rsi_upper': 58, 'rsi_lower': 42, 'bb_dev': 1.7},     # 東京時間は60/40→58/42に調整
+            'london': {'rsi_upper': 53, 'rsi_lower': 47, 'bb_dev': 1.5},    # ロンドン時間は55/45→53/47に調整
+            'ny': {'rsi_upper': 56, 'rsi_lower': 44, 'bb_dev': 1.6},        # NY時間は58/42→56/44に調整
+            'overlap': {'rsi_upper': 51, 'rsi_lower': 49, 'bb_dev': 1.4},   # オーバーラップ時間は53/47→51/49に調整
         }
         
     def generate_signals(self, data: pd.DataFrame, year: int, data_dir: str) -> pd.DataFrame:
@@ -122,11 +122,35 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             if consecutive_signals >= self.consecutive_limit:
                 continue
             
+            if self.time_filter:
+                hour = df.index[i].hour
+                if not ((0 <= hour < 3) or (8 <= hour < 11) or (13 <= hour < 16)):
+                    continue
+                    
             if not self._apply_filters(df, i):
                 continue
             
-            if (df['Close'].iloc[i] <= df['bb_lower'].iloc[i] and 
-                df['rsi'].iloc[i] <= self.rsi_lower):
+            rsi_upper_adjusted = self.rsi_upper
+            rsi_lower_adjusted = self.rsi_lower
+            bb_multiplier = 1.0
+            
+            if 'regime' in df.columns:
+                current_regime = df['regime'].iloc[i]
+                if current_regime == 'trend':
+                    rsi_upper_adjusted = self.rsi_upper + 2
+                    rsi_lower_adjusted = self.rsi_lower - 2
+                    bb_multiplier = 0.98
+                elif current_regime == 'range':
+                    rsi_upper_adjusted = self.rsi_upper - 3
+                    rsi_lower_adjusted = self.rsi_lower + 3
+                    bb_multiplier = 1.05
+                elif current_regime == 'volatile':
+                    rsi_upper_adjusted = self.rsi_upper - 5
+                    rsi_lower_adjusted = self.rsi_lower + 5
+                    bb_multiplier = 1.1
+            
+            if (df['Close'].iloc[i] <= df['bb_lower'].iloc[i] * bb_multiplier and 
+                df['rsi'].iloc[i] <= rsi_lower_adjusted):
                 
                 if self.use_price_action and not self._check_price_action_patterns(df, i):
                     continue
@@ -141,8 +165,8 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                 df.loc[df.index[i], 'tp_price'] = df['Close'].iloc[i] + self.tp_pips * 0.01
                 df.loc[df.index[i], 'strategy'] = self.name
             
-            elif (df['Close'].iloc[i] >= df['bb_upper'].iloc[i] and 
-                  df['rsi'].iloc[i] >= self.rsi_upper):
+            elif (df['Close'].iloc[i] >= df['bb_upper'].iloc[i] * (2 - bb_multiplier) and 
+                  df['rsi'].iloc[i] >= rsi_upper_adjusted):
                 
                 if self.use_price_action and not self._check_price_action_patterns(df, i):
                     continue
@@ -353,13 +377,13 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             tf_row = tf_data.iloc[tf_idx]
             
             if direction == 1:
-                if (tf_row['Close'] <= tf_row['bb_lower'] and tf_row['rsi'] <= self.rsi_lower):
+                if (tf_row['Close'] <= tf_row['bb_lower'] * 1.03 and tf_row['rsi'] <= self.rsi_lower + 2):
                     confirmation_count += weight
             else:
-                if (tf_row['Close'] >= tf_row['bb_upper'] and tf_row['rsi'] >= self.rsi_upper):
+                if (tf_row['Close'] >= tf_row['bb_upper'] * 0.97 and tf_row['rsi'] >= self.rsi_upper - 2):
                     confirmation_count += weight
         
-        confirmation_threshold = total_weight * 0.6  # 60%以上の時間足で確認が必要
+        confirmation_threshold = total_weight * 0.5  # 50%以上の時間足で確認が必要（60%から引き下げ）
         
         return confirmation_count >= confirmation_threshold
     
