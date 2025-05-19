@@ -717,14 +717,12 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         # ImprovedShortTermStrategyクラスから継承した属性を使用
         if hasattr(self, 'consecutive_wins') and hasattr(self, 'win_rate'):
             if self.consecutive_wins >= 2:
-                consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.25), 3.0)
-                
                 if self.win_rate >= 0.4:
-                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.3), 4.0)
+                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.5), 5.0)  # 0.3から0.5へ、最大4.0から5.0へ
                 elif self.win_rate >= 0.3:
-                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.25), 3.0)
+                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.4), 4.0)  # 0.25から0.4へ、最大3.0から4.0へ
                 else:
-                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.2), 2.5)
+                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.3), 3.0)  # 0.2から0.3へ、最大2.5から3.0へ
         
         final_size = base_size * consecutive_wins_multiplier
         

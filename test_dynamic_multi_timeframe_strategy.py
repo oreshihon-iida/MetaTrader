@@ -23,7 +23,7 @@ strategy = DynamicMultiTimeframeStrategy(
     rsi_upper=50,  # 50のまま維持
     rsi_lower=50,  # 50のまま維持
     sl_pips=2.5,
-    tp_pips=12.5,
+    tp_pips=15.0,  # 12.5から15.0に拡大（リスク:リワード比を5:1から6:1に改善）
     timeframe_weights={'5min': 2.0, '15min': 1.0, '30min': 0.5, '1H': 0.5, '1min': 0.5},  # 1分足を追加
     market_regime_detection=True,
     dynamic_timeframe_weights=True,
@@ -40,7 +40,7 @@ strategy = DynamicMultiTimeframeStrategy(
     adx_threshold=15,              # ADX閾値を15に引き下げ（使用する場合）
     use_pattern_filter=False,      # パターンフィルターを無効化（取引数を増やすため）
     use_quality_filter=True,       # 品質フィルターを有効化（勝率向上のため）
-    quality_threshold=0.3          # 品質閾値を0.3に引き下げ（より多くのシグナルを許可）
+    quality_threshold=0.25         # 品質閾値を0.3から0.25に引き下げ（より多くのシグナルを許可）
 )
 
 years = [int(year) for year in args.years.split(',')]
