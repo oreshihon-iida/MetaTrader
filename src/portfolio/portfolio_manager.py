@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 from typing import Dict, Any, List, Optional, Tuple
 from src.strategies.base_strategy import BaseStrategy
 from src.utils.logger import Logger
@@ -38,7 +39,10 @@ class PortfolioManager:
         self.strategies = strategies
         self.initial_balance = initial_balance
         self.current_balance = initial_balance
-        self.logger = Logger()
+        
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        self.logger = Logger(log_dir)
         
         self._calculate_allocations()
         

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timedelta
 from src.utils.logger import Logger
@@ -24,7 +25,9 @@ class MultiTimeframeDataManager:
         base_timeframe : str
             基準となる時間足
         """
-        self.logger = Logger()
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        self.logger = Logger(log_dir)
         self.base_timeframe = base_timeframe
         self.data_processor = DataProcessor(pd.DataFrame())
         

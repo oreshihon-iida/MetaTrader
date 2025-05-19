@@ -29,7 +29,10 @@ class MacroEconomicDataProcessor:
         """
         self.data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
-        self.logger = Logger()
+        
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        self.logger = Logger(log_dir)
         
         self.currency_pair = "USDJPY"
         self.base_currency = "USD"

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 from typing import Dict, Any, List, Optional, Tuple
 from src.strategies.base_strategy import BaseStrategy
 from src.utils.logger import Logger
@@ -51,9 +52,11 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         self.current_regime = "normal"
         self.regime_strength = 0.0
         
-        self._initialize_macro_data()
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        self.logger = Logger(log_dir)
         
-        self.logger = Logger()
+        self._initialize_macro_data()
     
     def _initialize_macro_data(self):
         """
