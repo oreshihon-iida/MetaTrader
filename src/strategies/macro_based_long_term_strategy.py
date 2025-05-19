@@ -197,6 +197,31 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         """
         signals = np.zeros(len(df))
         
+        if 'Close' in df.columns:
+            if 'bb_middle' not in df.columns:
+                df['bb_middle'] = df['Close'].rolling(window=self.bb_window).mean()
+                rolling_std = df['Close'].rolling(window=self.bb_window).std()
+                df['bb_upper'] = df['bb_middle'] + self.bb_dev * rolling_std
+                df['bb_lower'] = df['bb_middle'] - self.bb_dev * rolling_std
+                
+            if 'rsi' not in df.columns:
+                delta = df['Close'].diff()
+                gain = delta.where(delta > 0, 0)
+                loss = -delta.where(delta < 0, 0)
+                avg_gain = gain.rolling(window=self.rsi_window).mean()
+                avg_loss = loss.rolling(window=self.rsi_window).mean()
+                rs = avg_gain / avg_loss
+                df['rsi'] = 100 - (100 / (1 + rs))
+                
+            if 'sma_50' not in df.columns:
+                df['sma_50'] = df['Close'].rolling(window=50).mean()
+                
+            if 'sma_200' not in df.columns:
+                df['sma_200'] = df['Close'].rolling(window=200).mean()
+        else:
+            self.logger.log_error("Close column missing in dataframe")
+            return signals
+        
         for i in range(1, len(df)):
             required_columns = ['rsi', 'bb_upper', 'bb_lower', 'Close']
             if any(col not in df.columns for col in required_columns):
