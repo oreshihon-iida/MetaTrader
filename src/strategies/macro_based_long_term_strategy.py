@@ -43,7 +43,7 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         self.use_macro_analysis = kwargs.pop('use_macro_analysis', True)
         self.macro_weight = kwargs.pop('macro_weight', 2.0)  # マクロ要因の重み
         
-        self.quality_threshold = kwargs.pop('quality_threshold', 0.7)  # 高い品質閾値
+        self.quality_threshold = kwargs.pop('quality_threshold', 0.5)  # 品質閾値を0.7から0.5に下げて取引数を増加
         
         self.macro_processor = MacroEconomicDataProcessor()
         

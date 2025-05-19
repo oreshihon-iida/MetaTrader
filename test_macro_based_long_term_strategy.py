@@ -40,7 +40,7 @@ strategy = MacroBasedLongTermStrategy(
     sl_pips=50.0,
     tp_pips=150.0,
     timeframe_weights={'1D': 3.0, '1W': 2.0, '1M': 1.0, '4H': 0.5},
-    quality_threshold=0.7,
+    quality_threshold=0.5,
     use_macro_analysis=True,
     macro_weight=2.0
 )
