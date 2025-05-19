@@ -309,10 +309,14 @@ class MacroBasedLongTermStrategy(BaseStrategy):
             
             total_signal = (rsi_signal * rsi_weight + bb_signal * bb_weight + ma_signal * ma_weight) / (rsi_weight + bb_weight + ma_weight)
             
-            if total_signal > 0.1:  # 閾値を0.3から0.1に下げて取引数を増加
+            self.logger.log_info(f"RSI: {rsi:.2f}, RSI Signal: {rsi_signal}, BB Signal: {bb_signal}, MA Signal: {ma_signal}, Total: {total_signal:.2f}")
+            
+            if total_signal > 0.0:  # 閾値を0.1から0.0に下げて取引数を増加
                 signals[i] = 1.0  # 買いシグナル
-            elif total_signal < -0.1:  # 閾値を-0.3から-0.1に下げて取引数を増加
+                self.logger.log_info(f"買いシグナル生成: {df.index[i]}")
+            elif total_signal < 0.0:  # 閾値を-0.1から0.0に下げて取引数を増加
                 signals[i] = -1.0  # 売りシグナル
+                self.logger.log_info(f"売りシグナル生成: {df.index[i]}")
                 
         return signals
         
