@@ -23,6 +23,8 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.market_regime_detection = kwargs.pop('market_regime_detection', True)
         self.dynamic_timeframe_weights = kwargs.pop('dynamic_timeframe_weights', True)
         self.volatility_based_params = kwargs.pop('volatility_based_params', True)
+        self.confirmation_threshold = kwargs.pop('confirmation_threshold', 0.4)  # 確認閾値（デフォルト0.4）
+        self.expand_time_filter = kwargs.pop('expand_time_filter', False)  # 時間フィルターの拡大（デフォルトFalse）
         
         default_params = {
             'bb_window': 20,
@@ -124,8 +126,12 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             
             if self.time_filter:
                 hour = df.index[i].hour
-                if not ((0 <= hour < 3) or (5 <= hour < 7) or (8 <= hour < 11) or (13 <= hour < 16) or (17 <= hour < 20)):
-                    continue
+                if self.expand_time_filter:
+                    if not ((0 <= hour < 3) or (4 <= hour < 21)):
+                        continue
+                else:
+                    if not ((0 <= hour < 3) or (5 <= hour < 7) or (8 <= hour < 11) or (13 <= hour < 16) or (17 <= hour < 20)):
+                        continue
                     
             if not self._apply_filters(df, i):
                 continue
@@ -377,13 +383,13 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             tf_row = tf_data.iloc[tf_idx]
             
             if direction == 1:
-                if (tf_row['Close'] <= tf_row['bb_lower'] * 1.03 and tf_row['rsi'] <= self.rsi_lower + 2):
+                if (tf_row['Close'] <= tf_row['bb_lower'] * 1.05 and tf_row['rsi'] <= self.rsi_lower + 5):  # 1.03→1.05、+2→+5
                     confirmation_count += weight
             else:
-                if (tf_row['Close'] >= tf_row['bb_upper'] * 0.97 and tf_row['rsi'] >= self.rsi_upper - 2):
+                if (tf_row['Close'] >= tf_row['bb_upper'] * 0.95 and tf_row['rsi'] >= self.rsi_upper - 5):  # 0.97→0.95、-2→-5
                     confirmation_count += weight
         
-        confirmation_threshold = total_weight * 0.4  # 40%以上の時間足で確認が必要（50%から引き下げ）
+        confirmation_threshold = total_weight * self.confirmation_threshold  # 設定された確認閾値を使用
         
         return confirmation_count >= confirmation_threshold
     
