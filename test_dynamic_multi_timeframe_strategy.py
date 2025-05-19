@@ -35,7 +35,12 @@ strategy = DynamicMultiTimeframeStrategy(
     use_price_only_signals=True,   # 価格のみに基づくシグナル生成を有効化（新機能）
     use_moving_average=True,       # 移動平均クロスオーバーシグナルを有効化（新機能）
     ma_fast_period=5,              # 短期移動平均期間
-    ma_slow_period=20              # 長期移動平均期間
+    ma_slow_period=20,             # 長期移動平均期間
+    use_adx_filter=True,           # ADXフィルターを有効化（新機能）
+    adx_threshold=20,              # ADX閾値（20以上でトレンドと判断）
+    use_pattern_filter=True,       # パターンフィルターを有効化（新機能）
+    use_quality_filter=True,       # 品質フィルターを有効化（新機能）
+    quality_threshold=0.5          # 品質閾値（0.5以上で高品質シグナルと判断）
 )
 
 years = [int(year) for year in args.years.split(',')]

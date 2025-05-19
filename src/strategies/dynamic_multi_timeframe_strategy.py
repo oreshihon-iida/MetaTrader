@@ -31,6 +31,11 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.use_moving_average = kwargs.pop('use_moving_average', False)  # 移動平均を使用（デフォルトFalse）
         self.ma_fast_period = kwargs.pop('ma_fast_period', 5)  # 短期移動平均期間
         self.ma_slow_period = kwargs.pop('ma_slow_period', 20)  # 長期移動平均期間
+        self.use_adx_filter = kwargs.pop('use_adx_filter', False)  # ADXフィルターを使用（デフォルトFalse）
+        self.adx_threshold = kwargs.pop('adx_threshold', 25)  # ADX閾値（デフォルト25）
+        self.use_pattern_filter = kwargs.pop('use_pattern_filter', False)  # パターンフィルターを使用（デフォルトFalse）
+        self.use_quality_filter = kwargs.pop('use_quality_filter', False)  # 品質フィルターを使用（デフォルトFalse）
+        self.quality_threshold = kwargs.pop('quality_threshold', 0.7)  # 品質閾値（デフォルト0.7）
         
         default_params = {
             'bb_window': 20,
@@ -460,6 +465,224 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         confirmation_threshold = total_weight * self.confirmation_threshold  # 設定された確認閾値を使用
         
         return confirmation_count >= confirmation_threshold
+    
+    def _apply_filters(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        各種フィルターを適用する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            フィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        if self.trend_filter:
+            if not self._check_trend_filter(df, i):
+                return False
+        
+        if self.vol_filter:
+            if not self._check_volatility_filter(df, i):
+                return False
+        
+        if self.use_adx_filter and 'adx' in df.columns:
+            if not self._check_adx_filter(df, i):
+                return False
+        
+        if self.use_pattern_filter:
+            if not self._check_pattern_filter(df, i):
+                return False
+        
+        if self.use_quality_filter:
+            if not self._check_quality_filter(df, i):
+                return False
+        
+        return True
+    
+    def _check_adx_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        ADXフィルターを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            ADXフィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        if 'adx' not in df.columns:
+            return True
+            
+        adx = df['adx'].iloc[i]
+        
+        if adx > self.adx_threshold:
+            return True
+            
+        return False
+    
+    def _check_pattern_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        パターンフィルターを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            パターンフィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        if i < 5:  # 少なくとも5つの過去の価格ポイントが必要
+            return False
+            
+        if self._is_pin_bar(df, i):
+            return True
+            
+        if self._is_engulfing(df, i):
+            return True
+            
+        return False
+    
+    def _is_pin_bar(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        ピンバーパターンを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            ピンバーパターンの場合はTrue、そうでない場合はFalse
+        """
+        body = abs(df['Close'].iloc[i] - df['Open'].iloc[i])
+        total_range = df['High'].iloc[i] - df['Low'].iloc[i]
+        
+        if total_range == 0:
+            return False
+            
+        body_ratio = body / total_range
+        
+        if body_ratio <= 0.3:
+            if df['Close'].iloc[i] > df['Open'].iloc[i] and (df['Close'].iloc[i] - df['Low'].iloc[i]) / total_range > 0.6:
+                return True
+                
+            if df['Close'].iloc[i] < df['Open'].iloc[i] and (df['High'].iloc[i] - df['Close'].iloc[i]) / total_range > 0.6:
+                return True
+                
+        return False
+    
+    def _is_engulfing(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        エンゲルフィングパターンを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            エンゲルフィングパターンの場合はTrue、そうでない場合はFalse
+        """
+        if i < 1:
+            return False
+            
+        if (df['Close'].iloc[i] > df['Open'].iloc[i] and  # 現在の足が陽線
+            df['Close'].iloc[i-1] < df['Open'].iloc[i-1] and  # 前の足が陰線
+            df['Close'].iloc[i] > df['Open'].iloc[i-1] and  # 現在の終値が前の始値より高い
+            df['Open'].iloc[i] < df['Close'].iloc[i-1]):  # 現在の始値が前の終値より低い
+            return True
+            
+        if (df['Close'].iloc[i] < df['Open'].iloc[i] and  # 現在の足が陰線
+            df['Close'].iloc[i-1] > df['Open'].iloc[i-1] and  # 前の足が陽線
+            df['Close'].iloc[i] < df['Open'].iloc[i-1] and  # 現在の終値が前の始値より低い
+            df['Open'].iloc[i] > df['Close'].iloc[i-1]):  # 現在の始値が前の終値より高い
+            return True
+            
+        return False
+    
+    def _check_quality_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """
+        品質フィルターを確認する
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            処理対象のデータ
+        i : int
+            現在の行のインデックス
+            
+        Returns
+        -------
+        bool
+            品質フィルターをパスした場合はTrue、そうでない場合はFalse
+        """
+        quality_score = 0.0
+        total_factors = 0
+        
+        if 'rsi' in df.columns:
+            total_factors += 1
+            rsi = df['rsi'].iloc[i]
+            if rsi <= 30 or rsi >= 70:
+                quality_score += 1.0
+            elif rsi <= 35 or rsi >= 65:
+                quality_score += 0.7
+            elif rsi <= 40 or rsi >= 60:
+                quality_score += 0.4
+        
+        if 'bb_upper' in df.columns and 'bb_lower' in df.columns:
+            total_factors += 1
+            close = df['Close'].iloc[i]
+            bb_upper = df['bb_upper'].iloc[i]
+            bb_lower = df['bb_lower'].iloc[i]
+            
+            if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
+                quality_score += 1.0
+            elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
+                quality_score += 0.7
+            elif close >= bb_upper or close <= bb_lower:
+                quality_score += 0.4
+        
+        if 'adx' in df.columns:
+            total_factors += 1
+            adx = df['adx'].iloc[i]
+            
+            if adx >= 40:
+                quality_score += 1.0
+            elif adx >= 30:
+                quality_score += 0.7
+            elif adx >= 20:
+                quality_score += 0.4
+        
+        if self._is_pin_bar(df, i) or self._is_engulfing(df, i):
+            total_factors += 1
+            quality_score += 1.0
+        
+        final_score = quality_score / total_factors if total_factors > 0 else 0
+        
+        return final_score >= self.quality_threshold
     
     def calculate_position_size(self, signal: int, equity: float = 10000.0) -> float:
         """
