@@ -648,43 +648,15 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         quality_score = 0.0
         total_factors = 0
         
-        # 市場レジームに基づいて品質閾値を動的に調整
-        current_regime = 'unknown'
-        if 'regime' in df.columns and i < len(df):
-            current_regime = df['regime'].iloc[i]
-            
-        regime_thresholds = {
-            'trend': 0.5,     # トレンド市場では中程度の閾値
-            'range': 0.7,     # レンジ市場では高い閾値
-            'volatile': 0.4,  # ボラティリティ市場では低い閾値
-            'unknown': self.quality_threshold  # 不明な場合はデフォルト閾値
-        }
-        
         if 'rsi' in df.columns:
             total_factors += 1
             rsi = df['rsi'].iloc[i]
-            
-            if current_regime == 'trend':
-                if rsi <= 20 or rsi >= 80:
-                    quality_score += 1.0
-                elif rsi <= 30 or rsi >= 70:
-                    quality_score += 0.7
-                elif rsi <= 40 or rsi >= 60:
-                    quality_score += 0.3
-            elif current_regime == 'range':
-                if (rsi <= 30 and rsi >= 20) or (rsi >= 70 and rsi <= 80):
-                    quality_score += 1.0
-                elif (rsi <= 35 and rsi >= 25) or (rsi >= 65 and rsi <= 75):
-                    quality_score += 0.7
-                elif (rsi <= 40 and rsi >= 30) or (rsi >= 60 and rsi <= 70):
-                    quality_score += 0.4
-            else:
-                if rsi <= 30 or rsi >= 70:
-                    quality_score += 1.0
-                elif rsi <= 35 or rsi >= 65:
-                    quality_score += 0.7
-                elif rsi <= 40 or rsi >= 60:
-                    quality_score += 0.4
+            if rsi <= 30 or rsi >= 70:
+                quality_score += 1.0
+            elif rsi <= 35 or rsi >= 65:
+                quality_score += 0.7
+            elif rsi <= 40 or rsi >= 60:
+                quality_score += 0.4
         
         if 'bb_upper' in df.columns and 'bb_lower' in df.columns:
             total_factors += 1
@@ -692,53 +664,23 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             bb_upper = df['bb_upper'].iloc[i]
             bb_lower = df['bb_lower'].iloc[i]
             
-            if current_regime == 'trend':
-                if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
-                    quality_score += 1.0
-                elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
-                    quality_score += 0.7
-                elif close >= bb_upper or close <= bb_lower:
-                    quality_score += 0.4
-            elif current_regime == 'range':
-                if close >= bb_upper * 0.98 or close <= bb_lower * 1.02:
-                    quality_score += 1.0
-                elif close >= bb_upper * 0.95 or close <= bb_lower * 1.05:
-                    quality_score += 0.7
-                elif close >= bb_upper * 0.9 or close <= bb_lower * 1.1:
-                    quality_score += 0.4
-            else:
-                if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
-                    quality_score += 1.0
-                elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
-                    quality_score += 0.7
-                elif close >= bb_upper or close <= bb_lower:
-                    quality_score += 0.4
+            if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
+                quality_score += 1.0
+            elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
+                quality_score += 0.7
+            elif close >= bb_upper or close <= bb_lower:
+                quality_score += 0.4
         
         if 'adx' in df.columns:
             total_factors += 1
             adx = df['adx'].iloc[i]
             
-            if current_regime == 'trend':
-                if adx >= 35:
-                    quality_score += 1.0
-                elif adx >= 25:
-                    quality_score += 0.7
-                elif adx >= 20:
-                    quality_score += 0.4
-            elif current_regime == 'range':
-                if adx <= 15:
-                    quality_score += 1.0
-                elif adx <= 20:
-                    quality_score += 0.7
-                elif adx <= 25:
-                    quality_score += 0.4
-            else:
-                if adx >= 40:
-                    quality_score += 1.0
-                elif adx >= 30:
-                    quality_score += 0.7
-                elif adx >= 20:
-                    quality_score += 0.4
+            if adx >= 40:
+                quality_score += 1.0
+            elif adx >= 30:
+                quality_score += 0.7
+            elif adx >= 20:
+                quality_score += 0.4
         
         if self._is_pin_bar(df, i) or self._is_engulfing(df, i):
             total_factors += 1
@@ -746,16 +688,13 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         final_score = quality_score / total_factors if total_factors > 0 else 0
         
-        # 市場レジームに基づいて閾値を調整
-        adjusted_threshold = regime_thresholds.get(current_regime, self.quality_threshold)
-        
-        return final_score >= adjusted_threshold
+        return final_score >= self.quality_threshold
     
     def calculate_position_size(self, signal: int, equity: float = 10000.0) -> float:
         """
         ポジションサイズを計算する
         
-        市場レジームと連続勝利数に基づいてポジションサイズを調整
+        連続勝利数に基づいてポジションサイズを調整
         
         Parameters
         ----------
@@ -787,15 +726,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                 else:
                     consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.2), 2.5)
         
-        regime_multiplier = 1.0
-        if self.current_regime == 'trend':
-            regime_multiplier = 1.1  # トレンド市場ではやや大きめ
-        elif self.current_regime == 'range':
-            regime_multiplier = 0.8  # レンジ市場では小さめ
-        elif self.current_regime == 'volatile':
-            regime_multiplier = 0.7  # ボラティリティ市場では最小
-        
-        final_size = base_size * consecutive_wins_multiplier * regime_multiplier
+        final_size = base_size * consecutive_wins_multiplier
         
         max_position_size = equity * 0.05 / 10000.0  # 最大5%リスク
         
