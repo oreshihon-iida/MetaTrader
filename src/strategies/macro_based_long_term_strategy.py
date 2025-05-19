@@ -168,13 +168,23 @@ class MacroBasedLongTermStrategy(BaseStrategy):
             base_df.loc[base_df.index[i], 'signal_quality'] = abs(combined_signal)
             
             if base_df.loc[base_df.index[i], 'signal'] != 0:
-                current_price = base_df.loc[base_df.index[i], 'Close']
-                if base_df.loc[base_df.index[i], 'signal'] > 0:
-                    base_df.loc[base_df.index[i], 'sl'] = current_price - self.sl_pips / 100
-                    base_df.loc[base_df.index[i], 'tp'] = current_price + self.tp_pips / 100
+                column_mapping = {}
+                for col in base_df.columns:
+                    column_mapping[col.lower()] = col
+                
+                if 'close' in column_mapping:
+                    close_col = column_mapping['close']
+                    current_price = base_df.loc[base_df.index[i], close_col]
+                    
+                    if base_df.loc[base_df.index[i], 'signal'] > 0:
+                        base_df.loc[base_df.index[i], 'sl'] = current_price - self.sl_pips / 100
+                        base_df.loc[base_df.index[i], 'tp'] = current_price + self.tp_pips / 100
+                    else:
+                        base_df.loc[base_df.index[i], 'sl'] = current_price + self.sl_pips / 100
+                        base_df.loc[base_df.index[i], 'tp'] = current_price - self.tp_pips / 100
                 else:
-                    base_df.loc[base_df.index[i], 'sl'] = current_price + self.sl_pips / 100
-                    base_df.loc[base_df.index[i], 'tp'] = current_price - self.tp_pips / 100
+                    self.logger.log_error("Close column missing when setting SL/TP")
+                    self.logger.log_info(f"Available columns: {list(base_df.columns)}")
                     
             if base_df.loc[base_df.index[i], 'signal_quality'] < self.quality_threshold:
                 base_df.loc[base_df.index[i], 'signal'] = 0.0
@@ -197,15 +207,25 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         """
         signals = np.zeros(len(df))
         
-        if 'Close' in df.columns:
+        column_mapping = {}
+        for col in df.columns:
+            column_mapping[col.lower()] = col
+            
+        close_col = None
+        if 'close' in column_mapping:
+            close_col = column_mapping['close']
+        elif 'Close' in df.columns:  # 直接'Close'を確認
+            close_col = 'Close'
+        
+        if close_col is not None:
             if 'bb_middle' not in df.columns:
-                df['bb_middle'] = df['Close'].rolling(window=self.bb_window).mean()
-                rolling_std = df['Close'].rolling(window=self.bb_window).std()
+                df['bb_middle'] = df[close_col].rolling(window=self.bb_window).mean()
+                rolling_std = df[close_col].rolling(window=self.bb_window).std()
                 df['bb_upper'] = df['bb_middle'] + self.bb_dev * rolling_std
                 df['bb_lower'] = df['bb_middle'] - self.bb_dev * rolling_std
                 
             if 'rsi' not in df.columns:
-                delta = df['Close'].diff()
+                delta = df[close_col].diff()
                 gain = delta.where(delta > 0, 0)
                 loss = -delta.where(delta < 0, 0)
                 avg_gain = gain.rolling(window=self.rsi_window).mean()
@@ -214,38 +234,66 @@ class MacroBasedLongTermStrategy(BaseStrategy):
                 df['rsi'] = 100 - (100 / (1 + rs))
                 
             if 'sma_50' not in df.columns:
-                df['sma_50'] = df['Close'].rolling(window=50).mean()
+                df['sma_50'] = df[close_col].rolling(window=50).mean()
                 
             if 'sma_200' not in df.columns:
-                df['sma_200'] = df['Close'].rolling(window=200).mean()
+                df['sma_200'] = df[close_col].rolling(window=200).mean()
         else:
             self.logger.log_error("Close column missing in dataframe")
+            self.logger.log_info(f"Available columns: {list(df.columns)}")
             return signals
         
         for i in range(1, len(df)):
-            required_columns = ['rsi', 'bb_upper', 'bb_lower', 'Close']
-            if any(col not in df.columns for col in required_columns):
-                self.logger.log_warning(f"Required columns missing in dataframe: {[col for col in required_columns if col not in df.columns]}")
+            column_mapping = {}
+            for col in df.columns:
+                column_mapping[col.lower()] = col
+                
+            required_columns_lower = ['rsi', 'bb_upper', 'bb_lower', 'close']
+            missing_columns = []
+            
+            for req_col in required_columns_lower:
+                if req_col not in column_mapping:
+                    if req_col == 'close' and 'Close' in df.columns:
+                        continue
+                    missing_columns.append(req_col)
+            
+            if missing_columns:
+                self.logger.log_warning(f"Required columns missing in dataframe: {missing_columns}")
                 continue
                 
             if pd.isna(df['rsi'].iloc[i]) or pd.isna(df['bb_upper'].iloc[i]) or pd.isna(df['bb_lower'].iloc[i]):
                 continue
                 
-            price = df['Close'].iloc[i]
-            prev_price = df['Close'].iloc[i-1]
+            column_mapping = {}
+            for col in df.columns:
+                column_mapping[col.lower()] = col
             
-            rsi = df['rsi'].iloc[i]
-            rsi_signal = 0
-            if rsi < self.rsi_lower:
-                rsi_signal = 1  # 買いシグナル
-            elif rsi > self.rsi_upper:
-                rsi_signal = -1  # 売りシグナル
+            close_col = None
+            if 'close' in column_mapping:
+                close_col = column_mapping['close']
+            elif 'Close' in df.columns:  # 直接'Close'を確認
+                close_col = 'Close'
+            
+            if close_col is not None:
+                price = df[close_col].iloc[i]
+                prev_price = df[close_col].iloc[i-1]
                 
-            bb_signal = 0
-            if price < df['bb_lower'].iloc[i] and prev_price > df['bb_lower'].iloc[i]:
-                bb_signal = 1  # 買いシグナル
-            elif price > df['bb_upper'].iloc[i] and prev_price < df['bb_upper'].iloc[i]:
-                bb_signal = -1  # 売りシグナル
+                rsi = df['rsi'].iloc[i]
+                rsi_signal = 0
+                if rsi < self.rsi_lower:
+                    rsi_signal = 1  # 買いシグナル
+                elif rsi > self.rsi_upper:
+                    rsi_signal = -1  # 売りシグナル
+                    
+                bb_signal = 0
+                if price < df['bb_lower'].iloc[i] and prev_price > df['bb_lower'].iloc[i]:
+                    bb_signal = 1  # 買いシグナル
+                elif price > df['bb_upper'].iloc[i] and prev_price < df['bb_upper'].iloc[i]:
+                    bb_signal = -1  # 売りシグナル
+            else:
+                self.logger.log_error("Close column missing when calculating signals")
+                self.logger.log_info(f"Available columns: {list(df.columns)}")
+                return 0
                 
             ma_signal = 0
             if 'sma_50' in df.columns and 'sma_200' in df.columns:

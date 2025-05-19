@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import argparse
+import logging
 from datetime import datetime
 from src.strategies.macro_based_long_term_strategy import MacroBasedLongTermStrategy
 from src.backtest.custom_backtest_engine import CustomBacktestEngine
@@ -21,6 +22,13 @@ os.makedirs(f"{output_dir}/charts", exist_ok=True)
 log_dir = "logs"
 os.makedirs(log_dir, exist_ok=True)
 logger = Logger(log_dir)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+logger.logger.addHandler(console_handler)
+
 logger.log_info("マクロ経済要因に基づく長期戦略のバックテスト開始")
 
 strategy = MacroBasedLongTermStrategy(
@@ -50,12 +58,41 @@ total_profit_factor = 0.0
 for test_year in years:
     logger.log_info(f"{test_year}年のデータを処理中...")
     
-    timeframes = ['4H', '1D', '1W', '1M']
-    data_dict = data_manager.load_data(timeframes, [test_year])
+    available_timeframes = []
+    for tf in ['4H', '1D', '1W', '1M']:
+        tf_dir = f"data/processed/{tf}/{test_year}"
+        tf_file = f"{tf_dir}/USDJPY_{tf}_{test_year}.csv"
+        if os.path.exists(tf_file):
+            available_timeframes.append(tf)
+            logger.log_info(f"{tf}データが利用可能です: {test_year}年")
+    
+    if not available_timeframes:
+        logger.log_error(f"{test_year}年のデータが見つかりません")
+        continue
+        
+    if '1D' in available_timeframes:
+        data_manager.base_timeframe = "1D"
+    elif '4H' in available_timeframes:
+        data_manager.base_timeframe = "4H"
+    else:
+        data_manager.base_timeframe = available_timeframes[0]
+    
+    logger.log_info(f"基準時間足を {data_manager.base_timeframe} に設定しました")
+    
+    data_dict = data_manager.load_data(available_timeframes, [test_year])
     
     if not data_dict:
         logger.log_error(f"{test_year}年のデータが見つかりません")
         continue
+    
+    adjusted_weights = {}
+    for tf in available_timeframes:
+        if tf in strategy.timeframe_weights:
+            adjusted_weights[tf] = strategy.timeframe_weights[tf]
+    
+    if adjusted_weights:
+        strategy.timeframe_weights = adjusted_weights
+        logger.log_info(f"調整された時間足の重み: {strategy.timeframe_weights}")
     
     data_dict = data_manager.calculate_indicators(data_dict)
     

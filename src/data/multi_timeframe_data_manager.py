@@ -148,42 +148,55 @@ class MultiTimeframeDataManager:
         """
         result = pd.DataFrame(index=base_index)
         
+        column_mapping = {}
+        for col in df.columns:
+            column_mapping[col.lower()] = col
+            
+        agg_dict = {}
+        
+        if 'open' in column_mapping:
+            agg_dict[column_mapping['open']] = 'first'
+        elif 'Open' in df.columns:
+            agg_dict['Open'] = 'first'
+            
+        if 'high' in column_mapping:
+            agg_dict[column_mapping['high']] = 'max'
+        elif 'High' in df.columns:
+            agg_dict['High'] = 'max'
+            
+        if 'low' in column_mapping:
+            agg_dict[column_mapping['low']] = 'min'
+        elif 'Low' in df.columns:
+            agg_dict['Low'] = 'min'
+            
+        if 'close' in column_mapping:
+            agg_dict[column_mapping['close']] = 'last'
+        elif 'Close' in df.columns:
+            agg_dict['Close'] = 'last'
+            
+        if 'volume' in column_mapping:
+            agg_dict[column_mapping['volume']] = 'sum'
+        elif 'Volume' in df.columns:
+            agg_dict['Volume'] = 'sum'
+            
+        for col in df.columns:
+            if col not in agg_dict:
+                agg_dict[col] = 'last'
+        
         if base_timeframe == "1D":
-            resampled = df.resample('D').agg({
-                'Open': 'first',
-                'High': 'max',
-                'Low': 'min',
-                'Close': 'last',
-                'Volume': 'sum'
-            })
+            freq = 'D'
         elif base_timeframe == "1W":
-            resampled = df.resample('W-FRI').agg({
-                'Open': 'first',
-                'High': 'max',
-                'Low': 'min',
-                'Close': 'last',
-                'Volume': 'sum'
-            })
+            freq = 'W-FRI'
         elif base_timeframe == "1M":
-            resampled = df.resample('M').agg({
-                'Open': 'first',
-                'High': 'max',
-                'Low': 'min',
-                'Close': 'last',
-                'Volume': 'sum'
-            })
+            freq = 'M'
         else:
             freq_map = {"1H": "1H", "4H": "4H"}
             freq = freq_map.get(base_timeframe, "1D")
-            resampled = df.resample(freq).agg({
-                'Open': 'first',
-                'High': 'max',
-                'Low': 'min',
-                'Close': 'last',
-                'Volume': 'sum'
-            })
+        
+        resampled = df.resample(freq).agg(agg_dict)
         
         common_index = base_index.intersection(resampled.index)
+        result = pd.DataFrame(index=base_index, columns=resampled.columns)
         result.loc[common_index] = resampled.loc[common_index]
         
         return result
@@ -208,7 +221,7 @@ class MultiTimeframeDataManager:
         pd.DataFrame
             ダウンサンプルされたデータフレーム
         """
-        result = pd.DataFrame(index=base_index)
+        result = pd.DataFrame(index=base_index, columns=df.columns)
         
         if isinstance(df.index, pd.DatetimeIndex):
             if timeframe == "1W" and base_timeframe == "1D":
@@ -219,9 +232,7 @@ class MultiTimeframeDataManager:
                     common_dates = base_index.intersection(week_dates)
                     
                     for date in common_dates:
-                        for col in df.columns:
-                            if col in result.columns or len(result.columns) == 0:
-                                result.loc[date, col] = row[col]
+                        result.loc[date] = row
             
             elif timeframe == "1M" and base_timeframe in ["1D", "1W"]:
                 for month_start, row in df.iterrows():
@@ -231,18 +242,14 @@ class MultiTimeframeDataManager:
                     common_dates = base_index.intersection(month_dates)
                     
                     for date in common_dates:
-                        for col in df.columns:
-                            if col in result.columns or len(result.columns) == 0:
-                                result.loc[date, col] = row[col]
+                        result.loc[date] = row
             
             else:
                 for date in base_index:
                     mask = df.index <= date
                     if mask.any():
                         closest_idx = df.index[mask][-1]
-                        for col in df.columns:
-                            if col in result.columns or len(result.columns) == 0:
-                                result.loc[date, col] = df.loc[closest_idx, col]
+                        result.loc[date] = df.loc[closest_idx]
         
         return result
     
@@ -269,25 +276,50 @@ class MultiTimeframeDataManager:
                 
             processed_df = df.copy()
             
-            processed_df['bb_middle'] = processed_df['Close'].rolling(window=20).mean()
-            rolling_std = processed_df['Close'].rolling(window=20).std()
-            processed_df['bb_upper'] = processed_df['bb_middle'] + 2 * rolling_std
-            processed_df['bb_lower'] = processed_df['bb_middle'] - 2 * rolling_std
+            column_mapping = {}
+            for col in processed_df.columns:
+                column_mapping[col.lower()] = col
             
-            delta = processed_df['Close'].diff()
-            gain = delta.where(delta > 0, 0)
-            loss = -delta.where(delta < 0, 0)
-            avg_gain = gain.rolling(window=14).mean()
-            avg_loss = loss.rolling(window=14).mean()
-            rs = avg_gain / avg_loss
-            processed_df['rsi'] = 100 - (100 / (1 + rs))
+            close_col = None
+            high_col = None
+            low_col = None
             
-            processed_df['sma_50'] = processed_df['Close'].rolling(window=50).mean()
-            processed_df['sma_200'] = processed_df['Close'].rolling(window=200).mean()
+            if 'close' in column_mapping:
+                close_col = column_mapping['close']
+            elif 'Close' in processed_df.columns:
+                close_col = 'Close'
+                
+            if 'high' in column_mapping:
+                high_col = column_mapping['high']
+            elif 'High' in processed_df.columns:
+                high_col = 'High'
+                
+            if 'low' in column_mapping:
+                low_col = column_mapping['low']
+            elif 'Low' in processed_df.columns:
+                low_col = 'Low'
             
-            processed_df['tr1'] = abs(processed_df['High'] - processed_df['Low'])
-            processed_df['tr2'] = abs(processed_df['High'] - processed_df['Close'].shift(1))
-            processed_df['tr3'] = abs(processed_df['Low'] - processed_df['Close'].shift(1))
+            if close_col is not None:
+                processed_df['bb_middle'] = processed_df[close_col].rolling(window=20).mean()
+                rolling_std = processed_df[close_col].rolling(window=20).std()
+                processed_df['bb_upper'] = processed_df['bb_middle'] + 2 * rolling_std
+                processed_df['bb_lower'] = processed_df['bb_middle'] - 2 * rolling_std
+                
+                delta = processed_df[close_col].diff()
+                gain = delta.where(delta > 0, 0)
+                loss = -delta.where(delta < 0, 0)
+                avg_gain = gain.rolling(window=14).mean()
+                avg_loss = loss.rolling(window=14).mean()
+                rs = avg_gain / avg_loss
+                processed_df['rsi'] = 100 - (100 / (1 + rs))
+                
+                processed_df['sma_50'] = processed_df[close_col].rolling(window=50).mean()
+                processed_df['sma_200'] = processed_df[close_col].rolling(window=200).mean()
+            
+            if high_col is not None and low_col is not None and close_col is not None:
+                processed_df['tr1'] = abs(processed_df[high_col] - processed_df[low_col])
+                processed_df['tr2'] = abs(processed_df[high_col] - processed_df[close_col].shift(1))
+                processed_df['tr3'] = abs(processed_df[low_col] - processed_df[close_col].shift(1))
             processed_df['tr'] = processed_df[['tr1', 'tr2', 'tr3']].max(axis=1)
             processed_df['atr'] = processed_df['tr'].rolling(window=14).mean()
             
