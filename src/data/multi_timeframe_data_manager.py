@@ -219,7 +219,9 @@ class MultiTimeframeDataManager:
                     common_dates = base_index.intersection(week_dates)
                     
                     for date in common_dates:
-                        result.loc[date] = row
+                        for col in df.columns:
+                            if col in result.columns or len(result.columns) == 0:
+                                result.loc[date, col] = row[col]
             
             elif timeframe == "1M" and base_timeframe in ["1D", "1W"]:
                 for month_start, row in df.iterrows():
@@ -229,14 +231,18 @@ class MultiTimeframeDataManager:
                     common_dates = base_index.intersection(month_dates)
                     
                     for date in common_dates:
-                        result.loc[date] = row
+                        for col in df.columns:
+                            if col in result.columns or len(result.columns) == 0:
+                                result.loc[date, col] = row[col]
             
             else:
                 for date in base_index:
                     mask = df.index <= date
                     if mask.any():
                         closest_idx = df.index[mask][-1]
-                        result.loc[date] = df.loc[closest_idx]
+                        for col in df.columns:
+                            if col in result.columns or len(result.columns) == 0:
+                                result.loc[date, col] = df.loc[closest_idx, col]
         
         return result
     
