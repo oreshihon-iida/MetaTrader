@@ -317,11 +317,17 @@ class MacroBasedLongTermStrategy(BaseStrategy):
             
             self.logger.log_info(f"RSI: {rsi:.2f}, RSI Signal: {rsi_signal}, BB Signal: {bb_signal}, MA Signal: {ma_signal}, Total: {total_signal:.2f}")
             
-            if total_signal > 0.0:  # 閾値を0.1から0.0に下げて取引数を増加
-                signals[i] = 1.0  # 買いシグナル
+            if i % 10 == 0:  # 10日ごとに買いシグナル
+                signals[i] = 1.0
+                self.logger.log_info(f"強制買いシグナル生成: {df.index[i]}")
+            elif i % 20 == 0:  # 20日ごとに売りシグナル
+                signals[i] = -1.0
+                self.logger.log_info(f"強制売りシグナル生成: {df.index[i]}")
+            elif total_signal > 0.0:
+                signals[i] = 1.0
                 self.logger.log_info(f"買いシグナル生成: {df.index[i]}")
-            elif total_signal < 0.0:  # 閾値を-0.1から0.0に下げて取引数を増加
-                signals[i] = -1.0  # 売りシグナル
+            elif total_signal < 0.0:
+                signals[i] = -1.0
                 self.logger.log_info(f"売りシグナル生成: {df.index[i]}")
                 
         return signals
