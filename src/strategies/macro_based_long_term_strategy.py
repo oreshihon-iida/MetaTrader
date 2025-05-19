@@ -186,8 +186,9 @@ class MacroBasedLongTermStrategy(BaseStrategy):
                     self.logger.log_error("Close column missing when setting SL/TP")
                     self.logger.log_info(f"Available columns: {list(base_df.columns)}")
                     
-            if base_df.loc[base_df.index[i], 'signal_quality'] < self.quality_threshold:
-                base_df.loc[base_df.index[i], 'signal'] = 0.0
+            # if base_df.loc[base_df.index[i], 'signal_quality'] < self.quality_threshold:
+            #     base_df.loc[base_df.index[i], 'signal'] = 0.0
+            self.logger.log_info(f"シグナル品質: {base_df.loc[base_df.index[i], 'signal_quality']:.2f}, 閾値: {self.quality_threshold}")
         
         return base_df
     
