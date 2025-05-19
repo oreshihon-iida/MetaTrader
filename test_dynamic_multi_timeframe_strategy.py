@@ -80,7 +80,17 @@ for year in years:
     logger.log_info("シグナル生成開始...")
     logger.log_info(f"使用する時間足の重み: {strategy.timeframe_weights}")
     
-    signals = strategy.generate_signals(data, year, 'data/processed')
+    data_dict = {'15min': data}
+    
+    for tf in ['5min', '30min', '1H']:
+        tf_dir = f"data/processed/{tf}/{year}"
+        tf_file = f"{tf_dir}/USDJPY_{tf}_{year}.csv"
+        if os.path.exists(tf_file):
+            tf_data = pd.read_csv(tf_file, index_col=0, parse_dates=True)
+            data_dict[tf] = tf_data
+            logger.log_info(f"{tf}データを読み込みました: {len(tf_data)}行")
+    
+    signals = strategy.generate_signals(data_dict)
     logger.log_info("シグナル生成完了、バックテスト開始...")
     
     backtest = CustomBacktestEngine(
@@ -91,7 +101,8 @@ for year in years:
         spread_pips=0.2
     )
     
-    result = backtest.run()
+    result_dict = backtest.run()
+    result = result_dict['trades']
     logger.log_info(f"バックテスト完了、結果: {len(result)} トレード")
     
     trades = len(result)
@@ -109,7 +120,8 @@ for year in years:
         
     for _, trade in result.iterrows():
         is_win = trade['損益(pips)'] > 0
-        strategy.update_consecutive_stats(is_win)
+        if hasattr(strategy, 'update_consecutive_stats'):
+            strategy.update_consecutive_stats(is_win)
     
     logger.log_info(f"{year}年の結果:")
     logger.log_info(f"トレード数: {trades}")
