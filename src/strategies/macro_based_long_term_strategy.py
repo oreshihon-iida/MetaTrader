@@ -160,9 +160,9 @@ class MacroBasedLongTermStrategy(BaseStrategy):
             
             combined_signal = (technical_signal + macro_score * self.macro_weight) / (1 + self.macro_weight)
             
-            if combined_signal > 0.5:  # 強い買いシグナル
+            if combined_signal > 0.3:  # 買いシグナル閾値を0.5から0.3に下げて取引数を増加
                 base_df.loc[base_df.index[i], 'signal'] = 1.0
-            elif combined_signal < -0.5:  # 強い売りシグナル
+            elif combined_signal < -0.3:  # 売りシグナル閾値を-0.5から-0.3に下げて取引数を増加
                 base_df.loc[base_df.index[i], 'signal'] = -1.0
                 
             base_df.loc[base_df.index[i], 'signal_quality'] = abs(combined_signal)
