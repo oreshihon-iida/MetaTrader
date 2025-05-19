@@ -37,12 +37,6 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.use_quality_filter = kwargs.pop('use_quality_filter', False)  # 品質フィルターを使用（デフォルトFalse）
         self.quality_threshold = kwargs.pop('quality_threshold', 0.7)  # 品質閾値（デフォルト0.7）
         
-        self.consecutive_wins = 0
-        self.max_consecutive_wins = 5
-        self.total_trades = 0
-        self.winning_trades = 0
-        self.win_rate = 0.0
-        
         default_params = {
             'bb_window': 20,
             'bb_dev': 0.8,    # 1.0から0.8に縮小してさらにバンドに触れる頻度を大幅増加
@@ -694,7 +688,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         """
         ポジションサイズを計算する
         
-        連続勝利数に基づいてポジションサイズを調整
+        市場レジームに基づいてポジションサイズを調整
         
         Parameters
         ----------
@@ -713,19 +707,11 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             
         base_size = super().calculate_position_size(signal, equity)
         
-        consecutive_wins_multiplier = 1.0
-        # ImprovedShortTermStrategyクラスから継承した属性を使用
-        if hasattr(self, 'consecutive_wins') and hasattr(self, 'win_rate'):
-            if self.consecutive_wins >= 2:
-                if self.win_rate >= 0.4:
-                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.5), 5.0)  # 0.3から0.5へ、最大4.0から5.0へ
-                elif self.win_rate >= 0.3:
-                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.4), 4.0)  # 0.25から0.4へ、最大3.0から4.0へ
-                else:
-                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.3), 3.0)  # 0.2から0.3へ、最大2.5から3.0へ
-        
-        final_size = base_size * consecutive_wins_multiplier
-        
-        max_position_size = equity * 0.05 / 10000.0  # 最大5%リスク
-        
-        return min(final_size, max_position_size)
+        if self.current_regime == 'trend':
+            return base_size
+        elif self.current_regime == 'range':
+            return base_size * 0.8
+        elif self.current_regime == 'volatile':
+            return base_size * 0.7
+        else:
+            return base_size
