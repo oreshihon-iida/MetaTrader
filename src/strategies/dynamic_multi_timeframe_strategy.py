@@ -26,23 +26,23 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         default_params = {
             'bb_window': 20,
-            'bb_dev': 1.4,    # 1.5から1.4に調整してさらにバンドに触れる頻度を増加
+            'bb_dev': 1.3,    # 1.4から1.3に調整してさらにバンドに触れる頻度を増加
             'rsi_window': 14,
-            'rsi_upper': 51,  # 53から51に調整してさらに取引機会を増加
-            'rsi_lower': 49,  # 47から49に調整してさらに取引機会を増加
+            'rsi_upper': 50,  # 51から50に調整してさらに取引機会を増加
+            'rsi_lower': 50,  # 49から50に調整してさらに取引機会を増加
             'sl_pips': 2.5,
             'tp_pips': 12.5,
             'atr_window': 14,
             'atr_sl_multiplier': 0.8,
             'atr_tp_multiplier': 2.0,
             'use_adaptive_params': True,
-            'trend_filter': True,
-            'vol_filter': True,
+            'trend_filter': False,  # トレンドフィルターを無効化して取引機会を増加
+            'vol_filter': False,    # ボラティリティフィルターを無効化して取引機会を増加
             'time_filter': True,
             'use_multi_timeframe': True,
-            'timeframe_weights': {'1min': 1.0, '5min': 2.0, '15min': 1.0, '30min': 0.5, '1H': 0.5},  # 1分足と1時間足を追加
-            'use_seasonal_filter': True,  # 季節性フィルターを有効化
-            'use_price_action': True,
+            'timeframe_weights': {'15min': 1.0},  # 一時的に15分足のみに簡略化
+            'use_seasonal_filter': False,  # 季節性フィルターを無効化して取引機会を増加
+            'use_price_action': False,     # 価格アクションフィルターを無効化して取引機会を増加
             'consecutive_limit': 2
         }
         
