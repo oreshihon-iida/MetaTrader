@@ -25,6 +25,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.volatility_based_params = kwargs.pop('volatility_based_params', True)
         self.confirmation_threshold = kwargs.pop('confirmation_threshold', 0.4)  # 確認閾値（デフォルト0.4）
         self.expand_time_filter = kwargs.pop('expand_time_filter', False)  # 時間フィルターの拡大（デフォルトFalse）
+        self.disable_time_filter = kwargs.pop('disable_time_filter', False)  # 時間フィルターの無効化（デフォルトFalse）
         
         default_params = {
             'bb_window': 20,
@@ -124,7 +125,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             if consecutive_signals >= self.consecutive_limit:
                 continue
             
-            if self.time_filter:
+            if self.time_filter and not self.disable_time_filter:
                 hour = df.index[i].hour
                 if self.expand_time_filter:
                     if not ((0 <= hour < 3) or (4 <= hour < 21)):
@@ -383,10 +384,10 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             tf_row = tf_data.iloc[tf_idx]
             
             if direction == 1:
-                if (tf_row['Close'] <= tf_row['bb_lower'] * 1.05 and tf_row['rsi'] <= self.rsi_lower + 5):  # 1.03→1.05、+2→+5
+                if (tf_row['Close'] <= tf_row['bb_lower'] * 1.10 and tf_row['rsi'] <= self.rsi_lower + 10):  # 1.05→1.10、+5→+10
                     confirmation_count += weight
             else:
-                if (tf_row['Close'] >= tf_row['bb_upper'] * 0.95 and tf_row['rsi'] >= self.rsi_upper - 5):  # 0.97→0.95、-2→-5
+                if (tf_row['Close'] >= tf_row['bb_upper'] * 0.90 and tf_row['rsi'] >= self.rsi_upper - 10):  # 0.95→0.90、-5→-10
                     confirmation_count += weight
         
         confirmation_threshold = total_weight * self.confirmation_threshold  # 設定された確認閾値を使用
