@@ -26,10 +26,10 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         default_params = {
             'bb_window': 20,
-            'bb_dev': 1.5,    # 1.6から1.5に調整してバンドに触れる頻度を増加
+            'bb_dev': 1.4,    # 1.5から1.4に調整してさらにバンドに触れる頻度を増加
             'rsi_window': 14,
-            'rsi_upper': 53,  # 55から53に調整して取引機会を増加
-            'rsi_lower': 47,  # 45から47に調整して取引機会を増加
+            'rsi_upper': 51,  # 53から51に調整してさらに取引機会を増加
+            'rsi_lower': 49,  # 47から49に調整してさらに取引機会を増加
             'sl_pips': 2.5,
             'tp_pips': 12.5,
             'atr_window': 14,
@@ -40,7 +40,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             'vol_filter': True,
             'time_filter': True,
             'use_multi_timeframe': True,
-            'timeframe_weights': {'5min': 2.0, '15min': 1.0, '30min': 0.5},  # 30分足も追加
+            'timeframe_weights': {'1min': 1.0, '5min': 2.0, '15min': 1.0, '30min': 0.5, '1H': 0.5},  # 1分足と1時間足を追加
             'use_seasonal_filter': True,  # 季節性フィルターを有効化
             'use_price_action': True,
             'consecutive_limit': 2
@@ -124,7 +124,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             
             if self.time_filter:
                 hour = df.index[i].hour
-                if not ((0 <= hour < 3) or (8 <= hour < 11) or (13 <= hour < 16)):
+                if not ((0 <= hour < 3) or (5 <= hour < 7) or (8 <= hour < 11) or (13 <= hour < 16) or (17 <= hour < 20)):
                     continue
                     
             if not self._apply_filters(df, i):
@@ -383,7 +383,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
                 if (tf_row['Close'] >= tf_row['bb_upper'] * 0.97 and tf_row['rsi'] >= self.rsi_upper - 2):
                     confirmation_count += weight
         
-        confirmation_threshold = total_weight * 0.5  # 50%以上の時間足で確認が必要（60%から引き下げ）
+        confirmation_threshold = total_weight * 0.4  # 40%以上の時間足で確認が必要（50%から引き下げ）
         
         return confirmation_count >= confirmation_threshold
     
