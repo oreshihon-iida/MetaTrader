@@ -114,8 +114,10 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         
         base_df['signal'] = 0.0
         base_df['signal_quality'] = 0.0
-        base_df['sl'] = 0.0
-        base_df['tp'] = 0.0
+        base_df['sl_price'] = 0.0
+        base_df['tp_price'] = 0.0
+        base_df['entry_price'] = 0.0
+        base_df['strategy'] = 'macro_long_term'
         
         weighted_signals = np.zeros(len(base_df))
         total_weight = 0.0
@@ -177,11 +179,13 @@ class MacroBasedLongTermStrategy(BaseStrategy):
                     current_price = base_df.loc[base_df.index[i], close_col]
                     
                     if base_df.loc[base_df.index[i], 'signal'] > 0:
-                        base_df.loc[base_df.index[i], 'sl'] = current_price - self.sl_pips / 100
-                        base_df.loc[base_df.index[i], 'tp'] = current_price + self.tp_pips / 100
+                        base_df.loc[base_df.index[i], 'sl_price'] = current_price - self.sl_pips / 100
+                        base_df.loc[base_df.index[i], 'tp_price'] = current_price + self.tp_pips / 100
+                        base_df.loc[base_df.index[i], 'entry_price'] = current_price
                     else:
-                        base_df.loc[base_df.index[i], 'sl'] = current_price + self.sl_pips / 100
-                        base_df.loc[base_df.index[i], 'tp'] = current_price - self.tp_pips / 100
+                        base_df.loc[base_df.index[i], 'sl_price'] = current_price + self.sl_pips / 100
+                        base_df.loc[base_df.index[i], 'tp_price'] = current_price - self.tp_pips / 100
+                        base_df.loc[base_df.index[i], 'entry_price'] = current_price
                 else:
                     self.logger.log_error("Close column missing when setting SL/TP")
                     self.logger.log_info(f"Available columns: {list(base_df.columns)}")
