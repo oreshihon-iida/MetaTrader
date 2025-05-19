@@ -113,18 +113,18 @@ for test_year in years:
         
         trades = backtest_results['trades']
         if not trades.empty:
-            wins = trades[trades['profit'] > 0]
-            losses = trades[trades['profit'] < 0]
+            wins = trades[trades['損益(円)'] > 0]
+            losses = trades[trades['損益(円)'] <= 0]
             
             win_rate = len(wins) / len(trades) * 100 if len(trades) > 0 else 0
-            profit_factor = abs(wins['profit'].sum() / losses['profit'].sum()) if losses['profit'].sum() != 0 else float('inf')
+            profit_factor = abs(wins['損益(円)'].sum() / losses['損益(円)'].sum()) if losses['損益(円)'].sum() != 0 else float('inf')
             
             logger.log_info(f"バックテスト結果: {len(trades)}トレード, 勝率 {win_rate:.2f}%, プロフィットファクター {profit_factor:.2f}")
-            logger.log_info(f"純利益: {trades['profit'].sum():.2f}円")
+            logger.log_info(f"純利益: {trades['損益(円)'].sum():.2f}円")
             
             total_trades += len(trades)
             total_wins += len(wins)
-            total_profit += trades['profit'].sum()
+            total_profit += trades['損益(円)'].sum()
             
             if profit_factor != float('inf'):
                 total_profit_factor += profit_factor

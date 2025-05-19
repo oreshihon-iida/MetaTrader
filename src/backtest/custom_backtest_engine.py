@@ -4,12 +4,20 @@ from typing import Dict, List, Optional, Tuple, Any
 import datetime
 from .backtest_engine import BacktestEngine
 from .position import Position, PositionStatus
+from src.utils.logger import Logger
 
 class CustomBacktestEngine(BacktestEngine):
     """
     カスタムバックテストエンジン
     既存のシグナルを使用し、新たにシグナルを生成しない
     """
+    
+    def __init__(self, data, initial_balance=2000000, max_positions=5, spread_pips=0.2):
+        super().__init__(data, initial_balance, max_positions, spread_pips)
+        log_dir = "logs"
+        import os
+        os.makedirs(log_dir, exist_ok=True)
+        self.logger = Logger(log_dir)
 
     def run(self, strategies=None) -> Dict[str, Any]:
         """
@@ -31,8 +39,13 @@ class CustomBacktestEngine(BacktestEngine):
 
             self._check_positions_for_exit(current_time, current_bar)
 
-            if current_bar['signal'] != 0 and len(self.open_positions) < self.max_positions:
-                self._open_new_position(current_time, current_bar)
+            if current_bar['signal'] != 0:
+                self.logger.log_info(f"シグナル検出: {current_time}, 値: {current_bar['signal']}, 必要なカラム: entry_price={current_bar.get('entry_price', 'なし')}, sl_price={current_bar.get('sl_price', 'なし')}, tp_price={current_bar.get('tp_price', 'なし')}, strategy={current_bar.get('strategy', 'なし')}")
+                if len(self.open_positions) < self.max_positions:
+                    self._open_new_position(current_time, current_bar)
+                else:
+                    self.ignored_signals += 1
+                    self.logger.log_info(f"ポジション上限到達のためシグナル無視: {current_time}")
 
             self._record_equity(current_time)
 

@@ -96,7 +96,6 @@ for year in years:
     backtest = CustomBacktestEngine(
         data=signals,
         initial_balance=2000000,  # 100000から2000000に変更
-        lot_size=0.01,            # 0.02から0.01に戻す
         max_positions=5,          # 5のまま維持
         spread_pips=0.2
     )
