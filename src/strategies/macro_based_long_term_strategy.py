@@ -198,6 +198,11 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         signals = np.zeros(len(df))
         
         for i in range(1, len(df)):
+            required_columns = ['rsi', 'bb_upper', 'bb_lower', 'Close']
+            if any(col not in df.columns for col in required_columns):
+                self.logger.log_warning(f"Required columns missing in dataframe: {[col for col in required_columns if col not in df.columns]}")
+                continue
+                
             if pd.isna(df['rsi'].iloc[i]) or pd.isna(df['bb_upper'].iloc[i]) or pd.isna(df['bb_lower'].iloc[i]):
                 continue
                 
