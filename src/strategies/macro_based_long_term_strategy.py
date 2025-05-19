@@ -286,9 +286,9 @@ class MacroBasedLongTermStrategy(BaseStrategy):
                     rsi_signal = -1  # 売りシグナル
                     
                 bb_signal = 0
-                if price < df['bb_lower'].iloc[i] and prev_price > df['bb_lower'].iloc[i]:
+                if price < df['bb_lower'].iloc[i]:  # 下限を下回るだけで買いシグナル
                     bb_signal = 1  # 買いシグナル
-                elif price > df['bb_upper'].iloc[i] and prev_price < df['bb_upper'].iloc[i]:
+                elif price > df['bb_upper'].iloc[i]:  # 上限を上回るだけで売りシグナル
                     bb_signal = -1  # 売りシグナル
             else:
                 self.logger.log_error("Close column missing when calculating signals")
