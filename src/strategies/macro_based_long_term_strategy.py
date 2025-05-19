@@ -309,10 +309,10 @@ class MacroBasedLongTermStrategy(BaseStrategy):
             
             total_signal = (rsi_signal * rsi_weight + bb_signal * bb_weight + ma_signal * ma_weight) / (rsi_weight + bb_weight + ma_weight)
             
-            if total_signal > 0.3:
-                signals[i] = 1.0  # 強い買いシグナル
-            elif total_signal < -0.3:
-                signals[i] = -1.0  # 強い売りシグナル
+            if total_signal > 0.1:  # 閾値を0.3から0.1に下げて取引数を増加
+                signals[i] = 1.0  # 買いシグナル
+            elif total_signal < -0.1:  # 閾値を-0.3から-0.1に下げて取引数を増加
+                signals[i] = -1.0  # 売りシグナル
                 
         return signals
         
