@@ -37,6 +37,12 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         self.use_quality_filter = kwargs.pop('use_quality_filter', False)  # 品質フィルターを使用（デフォルトFalse）
         self.quality_threshold = kwargs.pop('quality_threshold', 0.7)  # 品質閾値（デフォルト0.7）
         
+        self.consecutive_wins = 0
+        self.max_consecutive_wins = 5
+        self.total_trades = 0
+        self.winning_trades = 0
+        self.win_rate = 0.0
+        
         default_params = {
             'bb_window': 20,
             'bb_dev': 0.8,    # 1.0から0.8に縮小してさらにバンドに触れる頻度を大幅増加
@@ -642,15 +648,43 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         quality_score = 0.0
         total_factors = 0
         
+        # 市場レジームに基づいて品質閾値を動的に調整
+        current_regime = 'unknown'
+        if 'regime' in df.columns and i < len(df):
+            current_regime = df['regime'].iloc[i]
+            
+        regime_thresholds = {
+            'trend': 0.5,     # トレンド市場では中程度の閾値
+            'range': 0.7,     # レンジ市場では高い閾値
+            'volatile': 0.4,  # ボラティリティ市場では低い閾値
+            'unknown': self.quality_threshold  # 不明な場合はデフォルト閾値
+        }
+        
         if 'rsi' in df.columns:
             total_factors += 1
             rsi = df['rsi'].iloc[i]
-            if rsi <= 30 or rsi >= 70:
-                quality_score += 1.0
-            elif rsi <= 35 or rsi >= 65:
-                quality_score += 0.7
-            elif rsi <= 40 or rsi >= 60:
-                quality_score += 0.4
+            
+            if current_regime == 'trend':
+                if rsi <= 20 or rsi >= 80:
+                    quality_score += 1.0
+                elif rsi <= 30 or rsi >= 70:
+                    quality_score += 0.7
+                elif rsi <= 40 or rsi >= 60:
+                    quality_score += 0.3
+            elif current_regime == 'range':
+                if (rsi <= 30 and rsi >= 20) or (rsi >= 70 and rsi <= 80):
+                    quality_score += 1.0
+                elif (rsi <= 35 and rsi >= 25) or (rsi >= 65 and rsi <= 75):
+                    quality_score += 0.7
+                elif (rsi <= 40 and rsi >= 30) or (rsi >= 60 and rsi <= 70):
+                    quality_score += 0.4
+            else:
+                if rsi <= 30 or rsi >= 70:
+                    quality_score += 1.0
+                elif rsi <= 35 or rsi >= 65:
+                    quality_score += 0.7
+                elif rsi <= 40 or rsi >= 60:
+                    quality_score += 0.4
         
         if 'bb_upper' in df.columns and 'bb_lower' in df.columns:
             total_factors += 1
@@ -658,23 +692,53 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             bb_upper = df['bb_upper'].iloc[i]
             bb_lower = df['bb_lower'].iloc[i]
             
-            if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
-                quality_score += 1.0
-            elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
-                quality_score += 0.7
-            elif close >= bb_upper or close <= bb_lower:
-                quality_score += 0.4
+            if current_regime == 'trend':
+                if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
+                    quality_score += 1.0
+                elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
+                    quality_score += 0.7
+                elif close >= bb_upper or close <= bb_lower:
+                    quality_score += 0.4
+            elif current_regime == 'range':
+                if close >= bb_upper * 0.98 or close <= bb_lower * 1.02:
+                    quality_score += 1.0
+                elif close >= bb_upper * 0.95 or close <= bb_lower * 1.05:
+                    quality_score += 0.7
+                elif close >= bb_upper * 0.9 or close <= bb_lower * 1.1:
+                    quality_score += 0.4
+            else:
+                if close >= bb_upper * 1.05 or close <= bb_lower * 0.95:
+                    quality_score += 1.0
+                elif close >= bb_upper * 1.02 or close <= bb_lower * 0.98:
+                    quality_score += 0.7
+                elif close >= bb_upper or close <= bb_lower:
+                    quality_score += 0.4
         
         if 'adx' in df.columns:
             total_factors += 1
             adx = df['adx'].iloc[i]
             
-            if adx >= 40:
-                quality_score += 1.0
-            elif adx >= 30:
-                quality_score += 0.7
-            elif adx >= 20:
-                quality_score += 0.4
+            if current_regime == 'trend':
+                if adx >= 35:
+                    quality_score += 1.0
+                elif adx >= 25:
+                    quality_score += 0.7
+                elif adx >= 20:
+                    quality_score += 0.4
+            elif current_regime == 'range':
+                if adx <= 15:
+                    quality_score += 1.0
+                elif adx <= 20:
+                    quality_score += 0.7
+                elif adx <= 25:
+                    quality_score += 0.4
+            else:
+                if adx >= 40:
+                    quality_score += 1.0
+                elif adx >= 30:
+                    quality_score += 0.7
+                elif adx >= 20:
+                    quality_score += 0.4
         
         if self._is_pin_bar(df, i) or self._is_engulfing(df, i):
             total_factors += 1
@@ -682,13 +746,16 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         final_score = quality_score / total_factors if total_factors > 0 else 0
         
-        return final_score >= self.quality_threshold
+        # 市場レジームに基づいて閾値を調整
+        adjusted_threshold = regime_thresholds.get(current_regime, self.quality_threshold)
+        
+        return final_score >= adjusted_threshold
     
     def calculate_position_size(self, signal: int, equity: float = 10000.0) -> float:
         """
         ポジションサイズを計算する
         
-        市場レジームに基づいてポジションサイズを調整
+        市場レジームと連続勝利数に基づいてポジションサイズを調整
         
         Parameters
         ----------
@@ -707,11 +774,29 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
             
         base_size = super().calculate_position_size(signal, equity)
         
+        consecutive_wins_multiplier = 1.0
+        # ImprovedShortTermStrategyクラスから継承した属性を使用
+        if hasattr(self, 'consecutive_wins') and hasattr(self, 'win_rate'):
+            if self.consecutive_wins >= 2:
+                consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.25), 3.0)
+                
+                if self.win_rate >= 0.4:
+                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.3), 4.0)
+                elif self.win_rate >= 0.3:
+                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.25), 3.0)
+                else:
+                    consecutive_wins_multiplier = min(1.0 + (self.consecutive_wins * 0.2), 2.5)
+        
+        regime_multiplier = 1.0
         if self.current_regime == 'trend':
-            return base_size
+            regime_multiplier = 1.1  # トレンド市場ではやや大きめ
         elif self.current_regime == 'range':
-            return base_size * 0.8
+            regime_multiplier = 0.8  # レンジ市場では小さめ
         elif self.current_regime == 'volatile':
-            return base_size * 0.7
-        else:
-            return base_size
+            regime_multiplier = 0.7  # ボラティリティ市場では最小
+        
+        final_size = base_size * consecutive_wins_multiplier * regime_multiplier
+        
+        max_position_size = equity * 0.05 / 10000.0  # 最大5%リスク
+        
+        return min(final_size, max_position_size)
