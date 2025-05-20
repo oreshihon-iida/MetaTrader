@@ -383,7 +383,7 @@ class DataProcessor:
         return ','.join(saved_files)
         
     def load_processed_data(self, timeframe: str, year: Optional[int] = None, 
-                          processed_dir: str = 'data/processed') -> pd.DataFrame:
+                          processed_dir: str = 'data/processed', currency_pair: str = 'USDJPY') -> pd.DataFrame:
         """
         処理済みデータをCSVファイルから読み込む
         
@@ -395,12 +395,22 @@ class DataProcessor:
             読み込む年。指定しない場合は全年のデータを読み込む
         processed_dir : str, default 'data/processed'
             データが保存されているディレクトリ
+        currency_pair : str, default 'USDJPY'
+            通貨ペア（例: 'USDJPY', 'EURUSD'）
             
         Returns
         -------
         pd.DataFrame
             読み込んだデータフレーム。データが見つからない場合は空のDataFrame
         """
+        if year is not None:
+            year_dir = os.path.join(processed_dir, str(year), currency_pair)
+            if os.path.exists(year_dir):
+                file_path = os.path.join(year_dir, f'{timeframe}.csv')
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path, index_col=0, parse_dates=True)
+                    return df
+        
         timeframe_dir = os.path.join(processed_dir, timeframe)
         
         if not os.path.exists(timeframe_dir):
@@ -411,7 +421,7 @@ class DataProcessor:
             if not os.path.exists(year_dir):
                 return pd.DataFrame()
                 
-            file_path = os.path.join(year_dir, f'USDJPY_{timeframe}_{year}.csv')
+            file_path = os.path.join(year_dir, f'{currency_pair}_{timeframe}_{year}.csv')
             if not os.path.exists(file_path):
                 return pd.DataFrame()
                 

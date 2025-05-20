@@ -47,7 +47,7 @@ class MultiTimeframeDataManager:
             "1M": 8
         }
     
-    def load_data(self, timeframes: List[str], years: List[int]) -> Dict[str, pd.DataFrame]:
+    def load_data(self, timeframes: List[str], years: List[int], currency_pair: str = 'USDJPY') -> Dict[str, pd.DataFrame]:
         """
         複数の時間足のデータを読み込む
         
@@ -57,6 +57,8 @@ class MultiTimeframeDataManager:
             読み込む時間足のリスト
         years : List[int]
             読み込む年のリスト
+        currency_pair : str, default 'USDJPY'
+            通貨ペア（例: 'USDJPY', 'EURUSD'）
             
         Returns
         -------
@@ -69,12 +71,12 @@ class MultiTimeframeDataManager:
             timeframe_data = []
             
             for year in years:
-                df = self.data_processor.load_processed_data(timeframe, year)
+                df = self.data_processor.load_processed_data(timeframe, year, currency_pair=currency_pair)
                 if not df.empty:
                     timeframe_data.append(df)
-                    self.logger.log_info(f"{timeframe}データ読み込み成功: {year}年, {len(df)}行")
+                    self.logger.log_info(f"{timeframe}データ読み込み成功: {year}年, {currency_pair}, {len(df)}行")
                 else:
-                    self.logger.log_warning(f"{timeframe}データが見つかりません: {year}年")
+                    self.logger.log_warning(f"{timeframe}データが見つかりません: {year}年, {currency_pair}")
             
             if timeframe_data:
                 combined_df = pd.concat(timeframe_data)

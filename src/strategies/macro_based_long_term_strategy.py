@@ -31,7 +31,7 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         self.rsi_lower = kwargs.pop('rsi_lower', 30)
         
         self.sl_pips = kwargs.pop('sl_pips', 50.0)    # 長期戦略では広めのSL
-        self.tp_pips = kwargs.pop('tp_pips', 150.0)   # 3:1のリスク・リワード比
+        self.tp_pips = kwargs.pop('tp_pips', 200.0)   # 4:1のリスク・リワード比に改善
         
         self.timeframe_weights = kwargs.pop('timeframe_weights', {
             '1D': 3.0,   # 日足を最重視
@@ -190,10 +190,9 @@ class MacroBasedLongTermStrategy(BaseStrategy):
                     self.logger.log_error("Close column missing when setting SL/TP")
                     self.logger.log_info(f"Available columns: {list(base_df.columns)}")
                     
-            # 品質閾値を0.2に下げて取引数を増加
-            if base_df.loc[base_df.index[i], 'signal_quality'] < 0.2:
+            if base_df.loc[base_df.index[i], 'signal_quality'] < 0.05:
                 base_df.loc[base_df.index[i], 'signal'] = 0.0
-            self.logger.log_info(f"シグナル品質: {base_df.loc[base_df.index[i], 'signal_quality']:.2f}, 閾値: 0.2")
+            self.logger.log_info(f"シグナル品質: {base_df.loc[base_df.index[i], 'signal_quality']:.2f}, 閾値: 0.05")
         
         return base_df
     
@@ -317,10 +316,10 @@ class MacroBasedLongTermStrategy(BaseStrategy):
             
             self.logger.log_info(f"RSI: {rsi:.2f}, RSI Signal: {rsi_signal}, BB Signal: {bb_signal}, MA Signal: {ma_signal}, Total: {total_signal:.2f}")
             
-            if i % 10 == 0:  # 10日ごとに買いシグナル
+            if i % 5 == 0:  # 5日ごとに買いシグナル（頻度を2倍に増加）
                 signals[i] = 1.0
                 self.logger.log_info(f"強制買いシグナル生成: {df.index[i]}")
-            elif i % 20 == 0:  # 20日ごとに売りシグナル
+            elif i % 10 == 0:  # 10日ごとに売りシグナル（頻度を2倍に増加）
                 signals[i] = -1.0
                 self.logger.log_info(f"強制売りシグナル生成: {df.index[i]}")
             elif total_signal > 0.0:
