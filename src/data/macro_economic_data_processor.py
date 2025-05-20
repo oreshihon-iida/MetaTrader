@@ -364,6 +364,12 @@ class MacroEconomicDataProcessor:
             import fredapi
             from datetime import datetime, timedelta
             
+            try:
+                from dotenv import load_dotenv
+                load_dotenv()
+            except ImportError:
+                self.logger.log_warning(".envファイルの読み込みに失敗しました。python-dotenvがインストールされていることを確認してください。")
+            
             api_key = os.environ.get('FRED_API_KEY', '')
             
             if not api_key:

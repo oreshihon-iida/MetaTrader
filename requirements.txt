@@ -4,3 +4,4 @@ matplotlib
 ta
 fredapi
 requests
+python-dotenv
