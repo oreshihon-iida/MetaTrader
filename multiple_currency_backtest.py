@@ -38,10 +38,10 @@ strategy = MacroBasedLongTermStrategy(
     rsi_window=14,
     rsi_upper=70,
     rsi_lower=30,
-    sl_pips=50.0,
+    base_sl_pips=50.0,
     tp_pips=200.0,
     timeframe_weights={'1D': 3.0, '1W': 2.0, '1M': 1.0, '4H': 0.5},
-    quality_threshold=0.03,  # 取引数を増やすために閾値を0.05に下げる
+    quality_threshold=0.2,  # 品質閾値を0.2に上げて低品質シグナルを除外
     use_macro_analysis=True,
     macro_weight=2.0
 )
@@ -322,7 +322,7 @@ with open(f"{output_dir}/backtest_summary.md", "w") as f:
     f.write(f"| rsi_window | {strategy.rsi_window} |\n")
     f.write(f"| rsi_upper | {strategy.rsi_upper} |\n")
     f.write(f"| rsi_lower | {strategy.rsi_lower} |\n")
-    f.write(f"| sl_pips | {strategy.sl_pips} |\n")
+    f.write(f"| sl_pips | {strategy.base_sl_pips} |\n")
     f.write(f"| tp_pips | {strategy.tp_pips} |\n")
     f.write(f"| quality_threshold | {strategy.quality_threshold} |\n")
     f.write(f"| macro_weight | {strategy.macro_weight} |\n")
