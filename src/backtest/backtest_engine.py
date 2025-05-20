@@ -45,6 +45,7 @@ class BacktestEngine:
 
         self.equity_curve = []
         self.trade_history = []
+        self.ignored_signals = 0  # 無視されたシグナルのカウンター
 
     def run(self, strategies=None) -> pd.DataFrame:
         """
@@ -99,8 +100,11 @@ class BacktestEngine:
 
             self._check_positions_for_exit(current_time, current_bar)
 
-            if current_bar['signal'] != 0 and len(self.open_positions) < self.max_positions:
-                self._open_new_position(current_time, current_bar)
+            if current_bar['signal'] != 0:
+                if len(self.open_positions) < self.max_positions:
+                    self._open_new_position(current_time, current_bar)
+                else:
+                    self.ignored_signals += 1
 
             self._record_equity(current_time)
 

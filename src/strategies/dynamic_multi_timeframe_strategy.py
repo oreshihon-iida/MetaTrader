@@ -105,7 +105,7 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         return df
         
-    def generate_signals(self, data: pd.DataFrame, year: int, data_dir: str) -> pd.DataFrame:
+    def generate_signals(self, data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         """
         トレードシグナルを生成する
         
@@ -113,12 +113,8 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         
         Parameters
         ----------
-        data : pd.DataFrame
-            処理対象のデータ
-        year : int
-            対象年
-        data_dir : str
-            データディレクトリ
+        data_dict : Dict[str, pd.DataFrame]
+            時間足ごとのデータフレーム辞書
             
         Returns
         -------
@@ -128,16 +124,17 @@ class DynamicMultiTimeframeStrategy(ImprovedShortTermStrategy):
         timeframes = list(self.timeframe_weights.keys())
         multi_tf_data = {}
         
+        if '5min' in data_dict and not data_dict['5min'].empty:
+            data = data_dict['5min'].copy()
+        elif '15min' in data_dict and not data_dict['15min'].empty:
+            data = data_dict['15min'].copy()
+        else:
+            self.logger.log_error("有効なデータが見つかりません")
+            return pd.DataFrame()
+            
         for tf in timeframes:
-            if tf != data.index.freq:  # 現在のデータと異なる時間足のみ読み込む
-                tf_dir = f"{data_dir}/{tf}/{year}"
-                tf_file = f"{tf_dir}/USDJPY_{tf}_{year}.csv"
-                
-                try:
-                    tf_data = pd.read_csv(tf_file, index_col=0, parse_dates=True)
-                    multi_tf_data[tf] = tf_data
-                except FileNotFoundError:
-                    print(f"Warning: {tf_file} not found. Skipping this timeframe.")
+            if tf in data_dict and not data_dict[tf].empty:
+                multi_tf_data[tf] = data_dict[tf]
         
         df = data.copy()
         

@@ -23,24 +23,24 @@ strategy = DynamicMultiTimeframeStrategy(
     rsi_upper=50,  # 50のまま維持
     rsi_lower=50,  # 50のまま維持
     sl_pips=2.5,
-    tp_pips=12.5,
-    timeframe_weights={'5min': 2.0, '15min': 1.0, '30min': 0.5, '1H': 0.5, '1min': 0.5},  # 1分足を追加
+    tp_pips=12.5,  # 元の値に戻す（リスク:リワード比を5:1に維持）
+    timeframe_weights={'5min': 2.0, '15min': 1.0, '30min': 0.5, '1H': 0.5},  # 1分足データがないため除外
     market_regime_detection=True,
     dynamic_timeframe_weights=True,
     volatility_based_params=True,
     confirmation_threshold=0.2,  # 確認閾値を20%に維持
     expand_time_filter=True,     # 取引時間を拡大
-    disable_time_filter=True,    # 時間フィルターを無効化して24時間取引を許可
-    disable_multi_timeframe=True,  # 複数時間足確認を無効化して単一時間足でのシグナル生成を許可
-    use_price_only_signals=True,   # 価格のみに基づくシグナル生成を有効化（新機能）
-    use_moving_average=True,       # 移動平均クロスオーバーシグナルを有効化（新機能）
+    disable_time_filter=False,    # 時間フィルターを無効化して24時間取引を許可
+    disable_multi_timeframe=False,  # 複数時間足確認を無効化して単一時間足でのシグナル生成を許可
+    use_price_only_signals=False,   # 価格のみに基づくシグナル生成を有効化（新機能）
+    use_moving_average=False,       # 移動平均クロスオーバーシグナルを有効化（新機能）
     ma_fast_period=5,              # 短期移動平均期間
     ma_slow_period=20,             # 長期移動平均期間
     use_adx_filter=False,          # ADXフィルターを無効化（取引数を増やすため）
     adx_threshold=15,              # ADX閾値を15に引き下げ（使用する場合）
     use_pattern_filter=False,      # パターンフィルターを無効化（取引数を増やすため）
     use_quality_filter=True,       # 品質フィルターを有効化（勝率向上のため）
-    quality_threshold=0.3          # 品質閾値を0.3に引き下げ（より多くのシグナルを許可）
+    quality_threshold=0.3          # 元の値に戻す（品質フィルターの強度を維持）
 )
 
 years = [int(year) for year in args.years.split(',')]
@@ -80,18 +80,28 @@ for year in years:
     logger.log_info("シグナル生成開始...")
     logger.log_info(f"使用する時間足の重み: {strategy.timeframe_weights}")
     
-    signals = strategy.generate_signals(data, year, 'data/processed')
+    data_dict = {'15min': data}
+    
+    for tf in ['5min', '30min', '1H']:
+        tf_dir = f"data/processed/{tf}/{year}"
+        tf_file = f"{tf_dir}/USDJPY_{tf}_{year}.csv"
+        if os.path.exists(tf_file):
+            tf_data = pd.read_csv(tf_file, index_col=0, parse_dates=True)
+            data_dict[tf] = tf_data
+            logger.log_info(f"{tf}データを読み込みました: {len(tf_data)}行")
+    
+    signals = strategy.generate_signals(data_dict)
     logger.log_info("シグナル生成完了、バックテスト開始...")
     
     backtest = CustomBacktestEngine(
         data=signals,
         initial_balance=2000000,  # 100000から2000000に変更
-        lot_size=0.01,            # 0.02から0.01に戻す
         max_positions=5,          # 5のまま維持
         spread_pips=0.2
     )
     
-    result = backtest.run()
+    result_dict = backtest.run()
+    result = result_dict['trades']
     logger.log_info(f"バックテスト完了、結果: {len(result)} トレード")
     
     trades = len(result)
@@ -109,7 +119,8 @@ for year in years:
         
     for _, trade in result.iterrows():
         is_win = trade['損益(pips)'] > 0
-        strategy.update_consecutive_stats(is_win)
+        if hasattr(strategy, 'update_consecutive_stats'):
+            strategy.update_consecutive_stats(is_win)
     
     logger.log_info(f"{year}年の結果:")
     logger.log_info(f"トレード数: {trades}")
