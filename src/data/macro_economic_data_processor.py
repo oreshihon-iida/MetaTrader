@@ -350,6 +350,104 @@ class MacroEconomicDataProcessor:
         else:
             return (now - last_update) > timedelta(days=7)
     
+    def update_data_automatically(self) -> bool:
+        """
+        マクロ経済データを自動的に更新する（FRED APIを使用）
+        
+        Returns
+        -------
+        bool
+            更新が成功した場合True
+        """
+        updated = False
+        try:
+            import fredapi
+            from datetime import datetime, timedelta
+            
+            api_key = os.environ.get('FRED_API_KEY', '')
+            
+            if not api_key:
+                config_file = os.path.join("config", "api_settings.json")
+                if os.path.exists(config_file):
+                    with open(config_file, 'r') as f:
+                        config = json.load(f)
+                        api_key = config.get('fred', {}).get('api_key', '')
+            
+            if not api_key:
+                self.logger.log_error("FRED API Keyが設定されていません")
+                return False
+                
+            fred = fredapi.Fred(api_key=api_key)
+            
+            fred_series_mapping = {
+                "interest_rate": {
+                    "US": "FEDFUNDS",  # 米国FRB政策金利
+                    "JP": "INTDSRJPM193N"  # 日本政策金利
+                },
+                "gdp_growth": {
+                    "US": "A191RL1Q225SBEA",  # 米国実質GDP成長率
+                    "JP": "JPNRGDPEXP"  # 日本実質GDP成長率
+                },
+                "inflation_rate": {
+                    "US": "CPIAUCSL",  # 米国CPI
+                    "JP": "JPNCPIALLMINMEI"  # 日本CPI
+                },
+                "unemployment_rate": {
+                    "US": "UNRATE",  # 米国失業率
+                    "JP": "LRUNTTTTJPM156S"  # 日本失業率
+                },
+                "trade_balance": {
+                    "US": "BOPGSTB",  # 米国貿易収支
+                    "JP": "JPTBALE"  # 日本貿易収支
+                }
+            }
+            
+            now = datetime.now()
+            
+            for indicator in self.high_importance_indicators + self.medium_importance_indicators:
+                if self.should_update(indicator) and indicator in fred_series_mapping:
+                    try:
+                        values = {}
+                        for country, series_id in fred_series_mapping[indicator].items():
+                            series_data = fred.get_series(series_id)
+                            if not series_data.empty:
+                                latest_date = series_data.index[-1]
+                                latest_value = series_data.iloc[-1]
+                                prev_value = series_data.iloc[-2] if len(series_data) > 1 else None
+                                
+                                values[country] = {
+                                    "value": float(latest_value),
+                                    "previous": float(prev_value) if prev_value is not None else None,
+                                    "forecast": None,
+                                    "date": latest_date.strftime("%Y-%m-%d")
+                                }
+                        
+                        if values:
+                            timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            if indicator in self.data:
+                                self.data[indicator]["last_update"] = timestamp
+                                self.data[indicator]["values"] = values
+                            else:
+                                self.data[indicator] = {
+                                    "last_update": timestamp,
+                                    "values": values
+                                }
+                            
+                            self.logger.log_info(f"{indicator}データを自動更新しました")
+                            updated = True
+                    except Exception as e:
+                        self.logger.log_error(f"{indicator}データの自動更新中にエラーが発生しました: {str(e)}")
+            
+            if updated:
+                self.save_data()
+                self.logger.log_info("マクロ経済データを保存しました")
+                
+            return updated
+        except Exception as e:
+            self.logger.log_error(f"マクロ経済データの自動更新中にエラーが発生しました: {str(e)}")
+            return False
+    
     def get_sample_data(self) -> Dict[str, Dict[str, Any]]:
         """
         サンプルデータを生成する（テスト・デモ用）

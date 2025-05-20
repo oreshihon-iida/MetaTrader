@@ -337,6 +337,7 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         ポジションサイズを計算
         
         長期戦略ではリスク管理を重視し、1トレードあたりの最大リスクを設定
+        市場レジームに応じて動的に調整
         
         Parameters
         ----------
@@ -353,21 +354,27 @@ class MacroBasedLongTermStrategy(BaseStrategy):
         if signal == 0:
             return 0.0
             
-        max_risk_per_trade = equity * 0.01
-        
-        position_size = max_risk_per_trade / (self.sl_pips * 100)
+        base_risk_per_trade = equity * 0.01
         
         if self.current_regime == "trend":
-            regime_multiplier = 1.0
+            regime_multiplier = 1.0 + (self.regime_strength * 0.5)  # 最大1.5倍
+            self.logger.log_info(f"トレンド相場: リスク乗数 = {regime_multiplier:.2f}")
         elif self.current_regime == "range":
-            regime_multiplier = 0.8
+            regime_multiplier = 0.8 - (self.regime_strength * 0.3)  # 最小0.5倍
+            self.logger.log_info(f"レンジ相場: リスク乗数 = {regime_multiplier:.2f}")
         elif self.current_regime == "volatile":
-            regime_multiplier = 0.6
+            regime_multiplier = 0.6 - (self.regime_strength * 0.4)  # 最小0.2倍
+            self.logger.log_info(f"高ボラティリティ相場: リスク乗数 = {regime_multiplier:.2f}")
         else:
             regime_multiplier = 1.0
+            self.logger.log_info("通常相場: 標準リスク設定")
             
-        adjusted_size = position_size * regime_multiplier
+        quality_multiplier = min(abs(signal) * 0.5 + 0.5, 1.0)  # 0.5-1.0
+        self.logger.log_info(f"シグナル品質: {abs(signal):.2f}, 乗数 = {quality_multiplier:.2f}")
+        
+        adjusted_risk = base_risk_per_trade * regime_multiplier * quality_multiplier
+        position_size = adjusted_risk / (self.sl_pips * 100)
         
         max_position_size = equity * 0.05 / 10000.0
         
-        return min(adjusted_size, max_position_size)
+        return min(position_size, max_position_size)

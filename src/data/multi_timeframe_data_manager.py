@@ -355,7 +355,7 @@ class MultiTimeframeDataManager:
         Returns
         -------
         Tuple[str, float]
-            市場レジーム（"trend", "range", "volatile"）とその強度
+            市場レジーム（"trend", "range", "volatile", "normal"）とその強度
         """
         if not base_timeframe:
             base_timeframe = self.base_timeframe
@@ -376,22 +376,26 @@ class MultiTimeframeDataManager:
         atr = latest['atr']
         atr_percentile = df['atr'].rank(pct=True).iloc[-1]
         
-        if 'bb_upper' in df.columns and 'bb_lower' in df.columns:
+        if 'bb_upper' in df.columns and 'bb_lower' in df.columns and 'bb_middle' in df.columns:
             bb_width = (latest['bb_upper'] - latest['bb_lower']) / latest['bb_middle']
             bb_width_percentile = ((df['bb_upper'] - df['bb_lower']) / df['bb_middle']).rank(pct=True).iloc[-1]
         else:
             bb_width = 0
             bb_width_percentile = 0
             
-        if adx >= 25:  # 強いトレンド
+        trend_score = min(1.0, (adx - 20) / 30) if adx > 20 else 0  # ADX 20-50を0-1にスケール
+        volatility_score = min(1.0, (atr_percentile - 0.7) / 0.3) if atr_percentile > 0.7 else 0  # 0.7-1.0を0-1にスケール
+        range_score = min(1.0, (0.4 - bb_width_percentile) / 0.4) if bb_width_percentile < 0.4 else 0  # 0-0.4を1-0にスケール
+        
+        if trend_score > volatility_score and trend_score > range_score and trend_score > 0.3:
             regime = "trend"
-            strength = min(1.0, (adx - 25) / 25)  # 25-50のADXを0-1にスケール
-        elif atr_percentile >= 0.8:  # 高いボラティリティ
+            strength = trend_score
+        elif volatility_score > trend_score and volatility_score > range_score and volatility_score > 0.3:
             regime = "volatile"
-            strength = min(1.0, (atr_percentile - 0.8) * 5)  # 0.8-1.0を0-1にスケール
-        elif bb_width_percentile <= 0.3:  # 狭いボリンジャーバンド幅（レンジ相場）
+            strength = volatility_score
+        elif range_score > trend_score and range_score > volatility_score and range_score > 0.3:
             regime = "range"
-            strength = min(1.0, (0.3 - bb_width_percentile) / 0.3)  # 0-0.3を1-0にスケール
+            strength = range_score
         else:
             regime = "normal"
             strength = 0.5
