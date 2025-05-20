@@ -6,7 +6,7 @@ from typing import List, Optional
 class DataLoader:
     """HistData.comから提供されるFXデータを読み込むクラス"""
     
-    def __init__(self, data_dir: str):
+    def __init__(self, data_dir: str, currency_pair: str = "USDJPY"):
         """
         初期化
         
@@ -14,8 +14,11 @@ class DataLoader:
         ----------
         data_dir : str
             生データが格納されているディレクトリパス
+        currency_pair : str
+            通貨ペア（例: "USDJPY", "EURUSD", "GBPUSD"）
         """
         self.data_dir = data_dir
+        self.currency_pair = currency_pair
         self.processed_dir = os.path.join(os.path.dirname(data_dir), 'processed')
         os.makedirs(self.processed_dir, exist_ok=True)
     
@@ -133,11 +136,11 @@ class DataLoader:
         pd.DataFrame
             読み込んだデータ。データが見つからない場合は空のDataFrame
         """
-        filename = f"HISTDATA_COM_MT_USDJPY_M1{year}.zip"
+        filename = f"HISTDATA_COM_MT_{self.currency_pair}_M1{year}.zip"
         file_path = os.path.join(self.data_dir, filename)
         
         if not os.path.exists(file_path):
-            monthly_pattern = f"HISTDATA_COM_MT_USDJPY_M1{year}"
+            monthly_pattern = f"HISTDATA_COM_MT_{self.currency_pair}_M1{year}"
             monthly_files = [f for f in os.listdir(self.data_dir) if f.startswith(monthly_pattern)]
             
             if not monthly_files:

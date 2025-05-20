@@ -1,0 +1,7 @@
+pandas
+numpy
+matplotlib
+ta
+fredapi
+requests
+python-dotenv

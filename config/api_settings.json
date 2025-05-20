@@ -1,0 +1,12 @@
+{
+    "fred": {
+        "api_key": ""
+    },
+    "update_schedule": {
+        "interest_rate": "event_based",
+        "gdp_growth": "quarterly",
+        "inflation_rate": "monthly",
+        "unemployment_rate": "monthly",
+        "trade_balance": "monthly"
+    }
+}
