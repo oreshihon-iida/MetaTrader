@@ -1,0 +1,20 @@
+{
+  "initial_balance": 3000000,
+  "final_balance": 2697049.9999999553,
+  "total_pnl": -302950.00000004243,
+  "total_return": -10.098333333334823,
+  "total_trades": 83,
+  "winning_trades": 22,
+  "losing_trades": 61,
+  "win_rate": 26.506024096385545,
+  "avg_win": 19029.54545454498,
+  "avg_loss": -11829.508196721836,
+  "profit_factor": 0.5801690687361017,
+  "max_drawdown": 13.827554224906333,
+  "max_consecutive_wins": 3,
+  "max_consecutive_losses": 12,
+  "total_commission": 0.0,
+  "peak_balance": 3072849.999999998,
+  "test_name": "IntegratedStrategyV1_Phase1",
+  "test_date": "2025-08-10T00:41:30.908259"
+}
