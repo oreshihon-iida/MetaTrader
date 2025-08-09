@@ -1,0 +1,18 @@
+{
+  "initial_balance": 3000000,
+  "final_balance": 3088079.999999932,
+  "total_pnl": 88079.99999992947,
+  "total_return": 2.9359999999977338,
+  "total_trades": 241,
+  "winning_trades": 99,
+  "losing_trades": 141,
+  "win_rate": 41.078838174273855,
+  "avg_win": 6506.060606060348,
+  "avg_loss": -3943.4042553194677,
+  "profit_factor": 1.1584115679290714,
+  "max_drawdown": 1.2848586655471168,
+  "max_consecutive_wins": 4,
+  "max_consecutive_losses": 6,
+  "total_commission": 0.0,
+  "peak_balance": 3106559.99999994
+}

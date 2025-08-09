@@ -1,0 +1,27 @@
+{
+  "current_balance": 3000000,
+  "total_pnl": 0,
+  "monthly_pnl": 0,
+  "monthly_target_achievement": 0.0,
+  "total_trades": 6376,
+  "win_rate": 0.0,
+  "current_drawdown": 0,
+  "scaling_phase": "initial",
+  "strategy_breakdown": {
+    "core": {
+      "trades": 4821,
+      "wins": 0,
+      "win_rate": 0.0
+    },
+    "aggressive": {
+      "trades": 1555,
+      "wins": 0,
+      "win_rate": 0.0
+    },
+    "stable": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0
+    }
+  }
+}
