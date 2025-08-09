@@ -22,7 +22,11 @@
       "WebFetch(domain:robotwealth.com)",
       "Bash(git checkout:*)",
       "Bash(git add:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git pull:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
