@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude code mcp list)",
+      "Bash(claude mcp:*)",
+      "Bash(powershell:*)",
+      "Bash(where npx)",
+      "Bash(npx @modelcontextprotocol/server-memory:*)",
+      "Bash(npx:*)",
+      "mcp__memory__search_nodes",
+      "mcp__memory__read_graph",
+      "Bash(echo $HOME)",
+      "mcp__memory__add_observations",
+      "mcp__memory__create_entities",
+      "mcp__memory__create_relations",
+      "Bash(python test:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(chcp:*)",
+      "WebFetch(domain:www.quantstart.com)",
+      "WebFetch(domain:algopro-ai.medium.com)",
+      "WebFetch(domain:robotwealth.com)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": []
+  }
+}

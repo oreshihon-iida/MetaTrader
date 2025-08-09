@@ -1,0 +1,15 @@
+2025-08-09 23:02:07,438 - INFO - ============================================================
+2025-08-09 23:02:07,438 - INFO - 最新データ収集開始
+2025-08-09 23:02:07,439 - INFO - 必要時間足: ['15min', '1H']
+2025-08-09 23:02:07,439 - INFO - 対象年: [2024, 2025]
+2025-08-09 23:02:07,439 - INFO - ============================================================
+2025-08-09 23:02:07,439 - INFO - Preparing strategy data for timeframes: ['15min', '1H']
+2025-08-09 23:02:07,439 - INFO - Found existing 15min data for 2024: C:\Users\iida\Documents\git\MetaTrader\data\processed\15min\2024\USDJPY_15min_2024.csv
+2025-08-09 23:02:07,440 - INFO - Found existing 15min data for 2025: C:\Users\iida\Documents\git\MetaTrader\data\processed\15min\2025\USDJPY_15min_2025.csv
+2025-08-09 23:02:07,450 - INFO - Ensured 15min data for 2 years
+2025-08-09 23:02:07,450 - INFO - Found existing 1H data for 2024: C:\Users\iida\Documents\git\MetaTrader\data\processed\1H\2024\USDJPY_1H_2024.csv
+2025-08-09 23:02:07,451 - INFO - Found existing 1H data for 2025: C:\Users\iida\Documents\git\MetaTrader\data\processed\1H\2025\USDJPY_1H_2025.csv
+2025-08-09 23:02:07,451 - INFO - Ensured 1H data for 2 years
+2025-08-09 23:02:07,451 - INFO - 15min: 2 years available
+2025-08-09 23:02:07,451 - INFO - 1H: 2 years available
+2025-08-09 23:02:07,452 - INFO - データ収集完了: 4 ファイル準備
