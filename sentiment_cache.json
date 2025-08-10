@@ -1,0 +1,46 @@
+{
+  "-3373518881795930396": {
+    "sentiment_score": 0.3,
+    "usd_impact": 0.4,
+    "jpy_impact": -0.2,
+    "timeframe": "medium",
+    "confidence": 0.7,
+    "key_factors": [
+      "FRB人事変更",
+      "金融政策方向性",
+      "トランプ政策期待"
+    ],
+    "timestamp": "2025-08-10T20:24:55.121727",
+    "news_text": "3 things you need to know about Trump's nominee for the Fed",
+    "added_timestamp": "2025-08-10T20:24:55.121759"
+  },
+  "1262331986496851271": {
+    "sentiment_score": 0.1,
+    "usd_impact": 0.2,
+    "jpy_impact": -0.1,
+    "timeframe": "short",
+    "confidence": 0.5,
+    "key_factors": [
+      "金利動向",
+      "住宅市場"
+    ],
+    "timestamp": "2025-08-10T20:32:42.499600",
+    "news_text": "Mortgage and refinance interest rates today, August 9, 2025: Fixed rates are unsteady ",
+    "added_timestamp": "2025-08-10T20:32:42.499607"
+  },
+  "6588662577947354656": {
+    "sentiment_score": 0.3,
+    "usd_impact": 0.4,
+    "jpy_impact": -0.2,
+    "timeframe": "medium",
+    "confidence": 0.7,
+    "key_factors": [
+      "FRB人事変更",
+      "金融政策方向性",
+      "トランプ政策期待"
+    ],
+    "timestamp": "2025-08-10T20:32:42.500086",
+    "news_text": "3 things you need to know about Trump’s nominee for the Fed ",
+    "added_timestamp": "2025-08-10T20:32:42.500092"
+  }
+}

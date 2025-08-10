@@ -18,8 +18,11 @@ from datetime import datetime
 import pickle
 import os
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error
+from xgboost import XGBRegressor
+import lightgbm as lgb
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -54,8 +57,9 @@ class OptimizedMLPredictor:
         self.risk_per_trade = risk_per_trade
         self.model_type = model_type
         
-        # モデル関連
-        self.model = None
+        # アンサンブルモデル関連
+        self.models = {}
+        self.ensemble_weights = {}
         self.scaler_X = StandardScaler()
         self.scaler_y = StandardScaler()
         self.feature_importance = None
@@ -130,31 +134,183 @@ class OptimizedMLPredictor:
         
         return features
     
-    def build_model(self):
+    def create_features_extended(self, data: pd.DataFrame) -> pd.DataFrame:
         """
-        モデル構築（最適化版）
+        拡張特徴量生成 - 高性能PC版
+        50+個の多様な特徴量で劇的な精度向上を目指す
         """
-        # 高速で精度の良い設定
-        model = RandomForestRegressor(
-            n_estimators=50,  # 削減
-            max_depth=8,
-            min_samples_split=10,
-            min_samples_leaf=5,
+        # キャッシュチェック
+        data_hash = hash(str(data.index[-1]) + str(len(data)) + "extended")
+        if data_hash in self._feature_cache:
+            return self._feature_cache[data_hash]
+
+        features = pd.DataFrame(index=data.index)
+        
+        # 基本価格データ
+        close = data['Close'] if 'Close' in data.columns else data['close']
+        high = data['High'] if 'High' in data.columns else data['high']
+        low = data['Low'] if 'Low' in data.columns else data['low']
+        open_price = data['Open'] if 'Open' in data.columns else data['open']
+        volume = data['Volume'] if 'Volume' in data.columns else pd.Series(index=data.index, data=1)
+        
+        # === 1. 多期間リターン系特徴量 (8個) ===
+        for period in [3, 5, 8, 10, 15, 20, 30, 45]:
+            features[f'returns_{period}'] = close.pct_change(period)
+        
+        # === 2. ボラティリティ系特徴量 (6個) ===
+        for period in [5, 10, 15, 20, 30, 45]:
+            features[f'volatility_{period}'] = close.pct_change().rolling(period).std()
+        
+        # === 3. 価格位置・レンジ系特徴量 (4個) ===
+        for period in [10, 20, 30, 50]:
+            features[f'price_position_{period}'] = (close - low.rolling(period).min()) / (
+                high.rolling(period).max() - low.rolling(period).min() + 1e-8
+            )
+        
+        # === 4. テクニカル指標群 (12個) ===
+        # RSI系
+        features['rsi_14'] = talib.RSI(close, timeperiod=14) / 100
+        features['rsi_21'] = talib.RSI(close, timeperiod=21) / 100
+        features['rsi_momentum'] = features['rsi_14'] - features['rsi_14'].shift(5)
+        
+        # MACD系
+        macd_12_26, signal_12_26, _ = talib.MACD(close, fastperiod=12, slowperiod=26)
+        macd_8_21, signal_8_21, _ = talib.MACD(close, fastperiod=8, slowperiod=21)
+        features['macd_signal_12_26'] = (macd_12_26 - signal_12_26) / close
+        features['macd_signal_8_21'] = (macd_8_21 - signal_8_21) / close
+        features['macd_histogram'] = talib.MACD(close)[2] / close
+        
+        # ボリンジャーバンド
+        bb_upper, bb_middle, bb_lower = talib.BBANDS(close, timeperiod=20, nbdevup=2, nbdevdn=2)
+        features['bb_position'] = (close - bb_lower) / (bb_upper - bb_lower + 1e-8)
+        features['bb_width'] = (bb_upper - bb_lower) / bb_middle
+        
+        # ストキャスティクス
+        slowk, slowd = talib.STOCH(high, low, close, fastk_period=14, slowk_period=3, slowd_period=3)
+        features['stoch_k'] = slowk / 100
+        features['stoch_d'] = slowd / 100
+        features['stoch_momentum'] = (slowk - slowd) / 100
+        
+        # === 5. 移動平均系特徴量 (8個) ===
+        for period in [5, 10, 15, 20, 30, 45, 60, 90]:
+            sma = talib.SMA(close, timeperiod=period)
+            features[f'sma_distance_{period}'] = (close - sma) / sma
+        
+        # === 6. 高度なテクニカル指標 (6個) ===
+        # ATR系
+        features['atr_14'] = talib.ATR(high, low, close, timeperiod=14) / close
+        features['atr_21'] = talib.ATR(high, low, close, timeperiod=21) / close
+        
+        # CCI (商品チャンネル指数)
+        features['cci'] = talib.CCI(high, low, close, timeperiod=14) / 100
+        
+        # Williams %R
+        features['williams_r'] = talib.WILLR(high, low, close, timeperiod=14) / -100
+        
+        # MFI (マネーフローインデックス)
+        features['mfi'] = talib.MFI(high, low, close, volume, timeperiod=14) / 100
+        
+        # ADX (方向性指標)
+        features['adx'] = talib.ADX(high, low, close, timeperiod=14) / 100
+        
+        # === 7. 価格パターン特徴量 (5個) ===
+        # 実体とヒゲの比率
+        body_size = abs(close - open_price)
+        upper_shadow = high - np.maximum(close, open_price)
+        lower_shadow = np.minimum(close, open_price) - low
+        total_range = high - low + 1e-8
+        
+        features['body_ratio'] = body_size / total_range
+        features['upper_shadow_ratio'] = upper_shadow / total_range
+        features['lower_shadow_ratio'] = lower_shadow / total_range
+        features['doji_score'] = 1 - (body_size / total_range)
+        
+        # 前日比較
+        features['gap'] = (open_price - close.shift(1)) / close.shift(1)
+        
+        # === 8. モメンタム・オシレーター系 (4個) ===
+        features['momentum_10'] = close / close.shift(10) - 1
+        features['momentum_20'] = close / close.shift(20) - 1
+        features['roc_14'] = talib.ROC(close, timeperiod=14) / 100
+        features['trix'] = talib.TRIX(close, timeperiod=14) / 100
+        
+        # === 9. 相関・統計特徴量 (2個) ===
+        # トレンド強度
+        features['trend_strength'] = talib.LINEARREG_SLOPE(close, timeperiod=14) / close
+        
+        # 価格分散
+        features['price_dispersion'] = close.rolling(20).std() / close.rolling(20).mean()
+        
+        # 欠損値処理（高速化のため前方補完のみ）
+        features = features.ffill().fillna(0)
+        
+        # キャッシュ更新
+        if len(self._feature_cache) > self._cache_size:
+            self._feature_cache = {}
+        self._feature_cache[data_hash] = features
+        
+        return features
+    
+    def build_ensemble_models(self):
+        """
+        アンサンブルモデル構築（高性能PC版）
+        """
+        models = {}
+        
+        # 1. Random Forest - 安定性重視
+        models['rf'] = RandomForestRegressor(
+            n_estimators=200,  # 拡張
+            max_depth=15,      # 深くする
+            min_samples_split=3,
+            min_samples_leaf=2,
             max_features='sqrt',
+            n_jobs=-1,
+            random_state=42
+        )
+        
+        # 2. XGBoost - 精度重視
+        models['xgb'] = XGBRegressor(
+            n_estimators=300,
+            max_depth=8,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
             random_state=42,
             n_jobs=-1
         )
         
-        return model
+        # 3. LightGBM - 高速・高精度
+        models['lgb'] = lgb.LGBMRegressor(
+            n_estimators=200,
+            max_depth=10,
+            learning_rate=0.05,
+            feature_fraction=0.8,
+            bagging_fraction=0.8,
+            random_state=42,
+            n_jobs=-1,
+            verbose=-1
+        )
+        
+        # 4. Gradient Boosting - 堅実性重視
+        models['gb'] = GradientBoostingRegressor(
+            n_estimators=150,
+            max_depth=8,
+            learning_rate=0.08,
+            subsample=0.8,
+            random_state=42
+        )
+        
+        return models
     
     def train_model(self, data: pd.DataFrame):
         """
         モデル学習（高速版）
         """
-        print(f"最適化モデル学習開始...")
+        print(f"最適化モデル学習開始（拡張特徴量版）...")
         
-        # 特徴量生成（最適化版）
-        features = self.create_features_optimized(data)
+        # 拡張特徴量生成（高性能PC版）
+        print("拡張特徴量生成中...")
+        features = self.create_features_extended(data)
         
         # 目的変数
         close = data['Close'] if 'Close' in data.columns else data['close']
@@ -184,13 +340,34 @@ class OptimizedMLPredictor:
         y_train_scaled = self.scaler_y.fit_transform(y_train.reshape(-1, 1)).flatten()
         y_val_scaled = self.scaler_y.transform(y_val.reshape(-1, 1)).flatten()
         
-        # モデル学習
-        self.model = self.build_model()
-        self.model.fit(X_train_scaled, y_train_scaled)
+        # アンサンブル学習（高性能PC版）
+        print("アンサンブル学習開始...")
+        self.models = self.build_ensemble_models()
+        model_scores = {}
+        model_predictions = {}
         
-        # 検証
-        y_pred = self.model.predict(X_val_scaled)
-        val_mae = mean_absolute_error(y_val_scaled, y_pred)
+        for name, model in self.models.items():
+            print(f"  {name}モデル学習中...")
+            model.fit(X_train_scaled, y_train_scaled)
+            y_pred = model.predict(X_val_scaled)
+            score = mean_absolute_error(y_val_scaled, y_pred)
+            model_scores[name] = score
+            model_predictions[name] = y_pred
+            print(f"  {name} MAE: {score:.6f}")
+        
+        # 重み計算（逆MAE重み付け）
+        total_inverse_score = sum(1/score for score in model_scores.values())
+        self.ensemble_weights = {name: (1/score)/total_inverse_score 
+                               for name, score in model_scores.items()}
+        
+        # アンサンブル予測
+        y_pred_ensemble = sum(self.ensemble_weights[name] * pred 
+                             for name, pred in model_predictions.items())
+        val_mae = mean_absolute_error(y_val_scaled, y_pred_ensemble)
+        
+        print(f"アンサンブル重み: {self.ensemble_weights}")
+        print(f"個別MAE: {model_scores}")
+        print(f"アンサンブルMAE: {val_mae:.6f}")
         
         # 予測精度計算（方向の正確性）
         y_pred_orig = self.scaler_y.inverse_transform(y_pred.reshape(-1, 1)).flatten()
@@ -210,11 +387,11 @@ class OptimizedMLPredictor:
         """
         高速予測
         """
-        if not self.is_trained or self.model is None:
+        if not self.is_trained or not self.models:
             return 0.0, 0.0
         
-        # 特徴量生成（最適化版）
-        features = self.create_features_optimized(data)
+        # 拡張特徴量生成（高性能PC版）
+        features = self.create_features_extended(data)
         
         if len(features) == 0:
             return 0.0, 0.0
@@ -223,8 +400,15 @@ class OptimizedMLPredictor:
         X = features.iloc[-1:].values
         X_scaled = self.scaler_X.transform(X)
         
-        # 予測
-        prediction_scaled = self.model.predict(X_scaled)[0]
+        # アンサンブル予測
+        predictions = {}
+        for name, model in self.models.items():
+            pred_scaled = model.predict(X_scaled)[0]
+            predictions[name] = pred_scaled
+        
+        # 重み付けアンサンブル
+        prediction_scaled = sum(self.ensemble_weights[name] * pred 
+                              for name, pred in predictions.items())
         prediction = self.scaler_y.inverse_transform([[prediction_scaled]])[0, 0]
         
         # 信頼度計算（予測の大きさと学習スコアに基づく）
