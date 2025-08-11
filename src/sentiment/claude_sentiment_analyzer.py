@@ -298,6 +298,113 @@ FXトレーダーの視点で、実際の取引判断に使える分析をお願
             print(f"入力エラー: {e}")
             return None
     
+    def get_recent_sentiments(self, target_timestamp: pd.Timestamp, hours_back: int = 12) -> List[Dict]:
+        """
+        指定時刻より前の感情分析データのみを取得（時系列整合性確保）
+        
+        Args:
+            target_timestamp: 基準時刻（この時刻より前のデータのみ使用）
+            hours_back: 何時間前までのデータを取得するか
+            
+        Returns:
+            時系列的に整合性のある感情分析データのリスト
+        """
+        relevant_sentiments = []
+        
+        # 基準時刻より前のデータのみを対象とする
+        cutoff_time = target_timestamp - timedelta(hours=hours_back)
+        
+        for timestamp_str, sentiment_data in self.sentiment_cache.items():
+            try:
+                # 実際のタイムスタンプキーを使用（数値キーの場合は追加タイムスタンプを使用）
+                if timestamp_str.lstrip('-').isdigit():
+                    # 数値キーの場合は、データ内のタイムスタンプを使用
+                    timestamp_source = sentiment_data.get('timestamp') or sentiment_data.get('added_timestamp')
+                    if timestamp_source:
+                        sentiment_timestamp = pd.to_datetime(timestamp_source)
+                    else:
+                        continue  # タイムスタンプが見つからない場合はスキップ
+                else:
+                    # 通常のタイムスタンプキー
+                    sentiment_timestamp = pd.to_datetime(timestamp_str)
+                
+                # 時系列整合性チェック
+                if cutoff_time <= sentiment_timestamp < target_timestamp:
+                    relevant_sentiments.append({
+                        'timestamp': sentiment_timestamp,
+                        'score': sentiment_data.get('sentiment_score', sentiment_data.get('score', 0.0)),
+                        'confidence': sentiment_data.get('confidence', 0.0),
+                        'news_count': sentiment_data.get('news_count', 1)
+                    })
+                    
+            except Exception as e:
+                # エラーが発生した場合はスキップして継続
+                continue
+        
+        # 時刻順でソート（古い順）
+        relevant_sentiments.sort(key=lambda x: x['timestamp'])
+        
+        return relevant_sentiments
+    
+    def get_sentiment_at_time(self, target_timestamp: pd.Timestamp) -> float:
+        """
+        指定時刻での感情分析スコアを取得（時系列整合性確保）
+        
+        Args:
+            target_timestamp: 取得したい時刻
+            
+        Returns:
+            感情分析スコア (-1.0 ~ 1.0)
+        """
+        # バックテスト中は未来のデータを使用しない
+        recent_sentiments = self.get_recent_sentiments(target_timestamp, hours_back=24)
+        
+        if not recent_sentiments:
+            return 0.0  # 中立
+        
+        # 最新の感情分析スコアを使用
+        return recent_sentiments[-1]['score']
+    
+    def is_valid_for_backtest(self, backtest_start: pd.Timestamp, backtest_end: pd.Timestamp) -> bool:
+        """
+        バックテスト期間に対して感情分析データが適切かチェック
+        
+        Args:
+            backtest_start: バックテスト開始時刻
+            backtest_end: バックテスト終了時刻
+            
+        Returns:
+            感情分析データが使用可能かどうか
+        """
+        if not self.sentiment_cache:
+            return False
+        
+        # 感情分析データの時期を確認
+        sentiment_timestamps = []
+        for timestamp_str in self.sentiment_cache.keys():
+            try:
+                sentiment_timestamps.append(pd.to_datetime(timestamp_str))
+            except:
+                continue
+        
+        if not sentiment_timestamps:
+            return False
+        
+        earliest_sentiment = min(sentiment_timestamps)
+        latest_sentiment = max(sentiment_timestamps)
+        
+        # バックテスト期間と感情分析データの期間が重複しているかチェック
+        overlap_exists = (earliest_sentiment <= backtest_end and 
+                         latest_sentiment >= backtest_start)
+        
+        if not overlap_exists:
+            print(f"警告: 感情分析データ期間 ({earliest_sentiment} - {latest_sentiment}) と")
+            print(f"バックテスト期間 ({backtest_start} - {backtest_end}) が重複していません")
+            print("感情分析なしで実行します")
+            return False
+            
+        return True
+
     def get_sentiment_summary(self) -> Dict:
         """
         感情分析の要約統計
