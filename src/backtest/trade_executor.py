@@ -134,7 +134,7 @@ class TradeExecutor:
                  spread_pips: float = 0.2,
                  commission_per_lot: float = 0,
                  max_positions: int = 10,
-                 margin_rate: float = 0.04):  # レバレッジ25倍 = 証拠金率4%
+                 margin_rate: float = 1.0):  # レバレッジ1倍 = 証拠金率100%
         """
         初期化
         
@@ -149,7 +149,7 @@ class TradeExecutor:
         max_positions : int
             最大同時保有ポジション数
         margin_rate : float
-            証拠金率
+            証拠金率（1.0 = レバレッジ1倍）
         """
         self.initial_balance = initial_balance
         self.balance = initial_balance
@@ -181,15 +181,22 @@ class TradeExecutor:
         self.equity_history = [initial_balance]
         self.trade_history = []
         
-    def can_open_position(self, lot_size: float) -> bool:
+    def can_open_position(self, lot_size: float, price: float = 150.0) -> bool:
         """新規ポジションを開けるかチェック"""
         if len(self.positions) >= self.max_positions:
             return False
         
-        # 必要証拠金の計算
-        required_margin = self.calculate_required_margin(lot_size)
-        used_margin = sum(self.calculate_required_margin(pos.lot_size) 
+        # 必要証拠金の計算（実際の価格使用）
+        required_margin = self.calculate_required_margin(lot_size, price)
+        used_margin = sum(self.calculate_required_margin(pos.lot_size, price) 
                          for pos in self.positions.values())
+        
+        # 総保有制限チェック（証拠金の80%まで）
+        max_total_position = self.initial_balance * 0.80
+        total_position_value = used_margin + required_margin
+        
+        if total_position_value > max_total_position:
+            return False
         
         # 利用可能証拠金のチェック
         available_margin = self.balance - used_margin
@@ -200,6 +207,43 @@ class TradeExecutor:
         # 1ロット = 100,000通貨
         position_value = lot_size * 100000 * price
         return position_value * self.margin_rate
+    
+    def calculate_max_lot_size(self, price: float = 150.0) -> float:
+        """現在の状況で取引可能な最大ロットサイズを計算"""
+        # 現在の使用証拠金
+        used_margin = sum(self.calculate_required_margin(pos.lot_size, price) 
+                         for pos in self.positions.values())
+        
+        # 80%制限での利用可能証拠金
+        max_total_position = self.initial_balance * 0.80
+        available_for_new_position = max_total_position - used_margin
+        
+        if available_for_new_position <= 0:
+            return 0.0
+        
+        # 1ロット = 100,000通貨 × 価格 × 証拠金率
+        one_lot_margin = 100000 * price * self.margin_rate
+        max_lot_size = available_for_new_position / one_lot_margin
+        
+        # 最小単位0.01ロットに丸める
+        return max(0.0, round(max_lot_size, 2))
+    
+    def calculate_max_positions(self, lot_size: float, price: float = 150.0) -> int:
+        """現在の価格とロットサイズで取引可能な最大ポジション数を計算"""
+        # 80%制限での利用可能証拠金
+        max_total_margin = self.initial_balance * 0.80
+        
+        # 1ポジションあたりの必要証拠金
+        margin_per_position = self.calculate_required_margin(lot_size, price)
+        
+        if margin_per_position <= 0:
+            return 0
+        
+        # 理論上の最大ポジション数
+        theoretical_max = int(max_total_margin / margin_per_position)
+        
+        # システムの最大制限と比較して小さい方を採用
+        return min(theoretical_max, self.max_positions)
     
     def open_position(self,
                      signal: int,
@@ -234,7 +278,7 @@ class TradeExecutor:
         Position or None
             開いたポジション
         """
-        if signal == 0 or not self.can_open_position(lot_size):
+        if signal == 0 or not self.can_open_position(lot_size, price):
             return None
         
         # スプレッド考慮

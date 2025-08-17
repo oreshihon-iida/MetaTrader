@@ -24,11 +24,17 @@ class ClaudeIntegratedNewsCollector:
     Claude統合型ニュース収集・感情分析システム
     """
     
-    def __init__(self, history_file: str = "news_history.json"):
+    def __init__(self, history_file: str = "news_history.json", 
+                 access_log_file: str = "news_access_log.json",
+                 min_interval_hours: float = 1.0):
         print("Claude統合型ニュース収集・感情分析システム")
         
         self.history_file = history_file
+        self.access_log_file = access_log_file
+        self.min_interval_hours = min_interval_hours
+        
         self.news_history = self._load_history()
+        self.access_log = self._load_access_log()
         self.sentiment_analyzer = ClaudeSentimentAnalyzer()
         
         # RSS feeds
@@ -69,6 +75,16 @@ class ClaudeIntegratedNewsCollector:
                 print(f"履歴読み込みエラー: {e}")
         return {}
     
+    def _load_access_log(self) -> Dict:
+        """アクセス履歴読み込み"""
+        if os.path.exists(self.access_log_file):
+            try:
+                with open(self.access_log_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"アクセス履歴読み込みエラー: {e}")
+        return {}
+    
     def _save_history(self):
         """ニュース履歴保存"""
         try:
@@ -76,6 +92,50 @@ class ClaudeIntegratedNewsCollector:
                 json.dump(self.news_history, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"履歴保存エラー: {e}")
+    
+    def _save_access_log(self):
+        """アクセス履歴保存"""
+        try:
+            with open(self.access_log_file, 'w', encoding='utf-8') as f:
+                json.dump(self.access_log, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"アクセス履歴保存エラー: {e}")
+    
+    def _should_skip_fetch(self, feed_name: str) -> bool:
+        """取得スキップ判定"""
+        current_time = datetime.now()
+        
+        if feed_name not in self.access_log:
+            return False
+        
+        last_access_str = self.access_log[feed_name].get('last_access')
+        if not last_access_str:
+            return False
+        
+        try:
+            last_access = datetime.fromisoformat(last_access_str)
+            time_diff = (current_time - last_access).total_seconds() / 3600
+            
+            if time_diff < self.min_interval_hours:
+                print(f"  {feed_name}: 前回取得から{time_diff:.1f}時間（{self.min_interval_hours}時間以内のためスキップ）")
+                return True
+        except:
+            pass
+        
+        return False
+    
+    def _update_access_log(self, feed_name: str, news_count: int):
+        """アクセス履歴更新"""
+        current_time = datetime.now()
+        
+        if feed_name not in self.access_log:
+            self.access_log[feed_name] = {}
+        
+        self.access_log[feed_name].update({
+            'last_access': current_time.isoformat(),
+            'news_count': news_count,
+            'total_accesses': self.access_log[feed_name].get('total_accesses', 0) + 1
+        })
     
     def _generate_news_hash(self, title: str) -> str:
         """ニュースハッシュ生成"""
@@ -238,9 +298,15 @@ class ClaudeIntegratedNewsCollector:
         for feed in self.rss_feeds:
             print(f"\n{feed['name']} 収集中...")
             
+            # アクセス頻度チェック
+            if self._should_skip_fetch(feed['name']):
+                continue
+            
             # RSS取得
             xml_content = self.fetch_rss_safely(feed['url'])
             if not xml_content:
+                # アクセス失敗もログに記録
+                self._update_access_log(feed['name'], 0)
                 continue
             
             # 解析
@@ -290,10 +356,16 @@ class ClaudeIntegratedNewsCollector:
             
             print(f"  FX関連・分析済み: {len(analyzed_news)}件 (重複除外: {duplicates}件)")
             all_analyzed_news.extend(analyzed_news)
+            
+            # アクセス履歴更新
+            self._update_access_log(feed['name'], len(news_items))
         
         # 履歴保存
         if all_analyzed_news:
             self._save_history()
+        
+        # アクセス履歴保存
+        self._save_access_log()
         
         print(f"\n自動収集・分析結果:")
         print(f"  新規分析ニュース: {len(all_analyzed_news)}件")

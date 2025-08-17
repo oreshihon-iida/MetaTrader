@@ -329,9 +329,16 @@ def enhanced_trinity_ml_wrapper(data: pd.DataFrame, executor, metadata: Dict = N
             if signal != 0:
                 signals_generated += 1
                 
-                # ポジションサイズ（Enhanced信頼度ベース）
+                # ポジションサイズ（証拠金制限対応）
                 enhanced_confidence = analysis['enhanced_confidence']
-                lot_size = min(1.0 + enhanced_confidence, 2.0)
+                max_lot_size = executor.calculate_max_lot_size(current_price)
+                
+                if max_lot_size <= 0:
+                    continue  # 証拠金不足でスキップ
+                
+                # Enhanced信頼度に基づく希望ロットサイズ
+                desired_lot_ratio = min(0.3 + enhanced_confidence * 0.7, 1.0)  # 0.3-1.0の範囲
+                lot_size = max(0.01, min(max_lot_size * desired_lot_ratio, max_lot_size))
                 
                 # TP/SL
                 tp_pips = 20
