@@ -153,13 +153,40 @@
       "Bash(claude migrate-installer:*)",
       "Bash(claude upgrade --help)",
       "Bash(claude config get:*)",
-      "Bash(claude config list:*)"
+      "Bash(claude config list:*)",
+      "Bash(C:UsersiidaDocumentsMetaTraderrun_drb_test.bat)",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout_v2.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v2.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout_v2_optimized.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v3.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout_v3_proven.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v4.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout_v4_profitable.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v4.mq5\" /log:\"C:\\Users\\iida\\Documents\\MetaTrader\\drb_v4_compile.log\")",
+      "Bash(test:*)",
+      "Bash(start \"\" \"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v3.ex5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v4_simple.mq5\")",
+      "Bash(start \"\" \"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v4_simple.ex5\")",
+      "Bash(start:*)",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v5_profitable.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v6_ultra_aggressive.mq5\" /log:\"C:\\Users\\iida\\Documents\\MetaTrader\\drb_v6_ultra_compile.log\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v6_ultra_aggressive.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout_v6_ultra_aggressive.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v7_2025_adaptive.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout_v7_2025_adaptive.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v8_revolutionary.mq5\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\terminal64.exe\" /auto /config:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\tester_DynamicRangeBreakout_v8_revolutionary.ini\")",
+      "Bash(\"C:\\Program Files\\MetaTrader 5\\metaeditor64.exe\" /compile:\"C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\DynamicRangeBreakout_v8_revolutionary.mq5\" /log:\"C:\\Users\\iida\\Documents\\MetaTrader\\v8_compile_debug.log\")",
+      "Bash(claude --permission-mode bypassPermissions)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075",
-      "C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Tester\\D0E8209F77C8CF37AD8BF550E51FF075"
+      "C:\\Users\\iida\\AppData\\Roaming\\MetaQuotes\\Tester\\D0E8209F77C8CF37AD8BF550E51FF075",
+      "C:\\d C:\\Users\\iida\\Documents"
     ]
   },
   "outputStyle": "Explanatory"

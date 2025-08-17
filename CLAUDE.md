@@ -180,6 +180,29 @@ verification_patterns = {
 - **月平均取引**: 142回
 - **評価**: 取引機能復活、収益性改善が課題
 
+## MT5バックテストトラブルシューティング（2025.08.17追加）
+
+### テスト失敗時の診断手順
+**症状**: テスト実施失敗またはCSVファイルが生成されない
+
+**診断順序**:
+1. **コンパイル失敗の可能性**
+   ```bash
+   # 再コンパイル実行
+   "C:\Program Files\MetaTrader 5\metaeditor64.exe" /compile:"C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\[EA名].mq5"
+   ```
+
+2. **MT5プロセス競合の可能性**
+   ```bash
+   # MT5強制終了
+   TASKKILL /F /IM terminal64.exe
+   
+   # 少し待ってからテスト再実行
+   "C:\Program Files\MetaTrader 5\terminal64.exe" /auto /config:"[設定ファイルパス]"
+   ```
+
+**重要**: 上記手順を順番に実行し、各段階でCSVファイル生成を確認する
+
 ## MT5 Backtest Execution Guide (2025.08.15更新)
 
 ### 初回テスト用サンプルEA
@@ -1455,4 +1478,148 @@ USD/JPY標準的な取引コスト：
 - **作成日**: 2025年8月17日
 - **最終更新**: メモリーMCP保存済み
 - **次回見直し**: 戦略決定時または月次レビュー時
-- 今覚えたことをmemorizeしておいて
+
+## MT5開発必須コマンド集（2025年8月17日追加）
+
+### 現在のシステム環境用コマンド
+以下は現在のユーザー環境で動作確認済みの正確なコマンドです：
+
+#### 1. MQL5コンパイル
+```bash
+"C:\Program Files\MetaTrader 5\metaeditor64.exe" /compile:"C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\[ファイル名].mq5"
+
+# V9戦略用例:
+"C:\Program Files\MetaTrader 5\metaeditor64.exe" /compile:"C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\DynamicRangeBreakout_v9_practical.mq5"
+```
+
+#### 2. ex5ファイル実行（MT5認識用）
+```bash
+start "" "C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\[ファイル名].ex5"
+
+# V9戦略用例:
+start "" "C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\DynamicRangeBreakout_v9_practical.ex5"
+```
+
+#### 3. MT5強制終了
+```bash
+TASKKILL /F /IM terminal64.exe
+
+# 注意: 既に終了している場合はエラーメッセージが出るが正常動作
+```
+
+#### 4. MT5バックテスト実行
+```bash
+"C:\Program Files\MetaTrader 5\terminal64.exe" /auto /config:"C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\[設定ファイル名].ini"
+
+# V9戦略用例:
+"C:\Program Files\MetaTrader 5\terminal64.exe" /auto /config:"C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\tester_DynamicRangeBreakout_v9_practical.ini"
+```
+
+#### 5. CSV結果ファイル検索
+```bash
+find "C:\Users\iida\AppData\Roaming\MetaQuotes\Tester" -name "*DRB_v9*" -type f 2>nul
+
+# または特定戦略用:
+find "C:\Users\iida\AppData\Roaming\MetaQuotes\Tester" -name "*[戦略名]*" -type f 2>nul
+```
+
+### tester.ini設定テンプレート（V9用）
+```ini
+[Tester]
+Expert=DynamicRangeBreakout_v9_practical
+Symbol=USDJPY
+Period=H4
+Login=
+Model=1
+ExecutionMode=0
+Optimization=0
+OptimizationCriterion=0
+FromDate=2024.01.01
+FromTime=00:00
+ToDate=2025.08.15
+ToTime=00:00
+ForwardMode=0
+ForwardDate=
+Report=tester\DynamicRangeBreakout_v9_practical_Result
+ReplaceReport=1
+ShutdownTerminal=1
+Deposit=3000000.00
+Currency=JPY
+Leverage=1:25
+UseLocal=1
+UseRemote=0
+UseCloud=0
+Visual=0
+
+[ExpertParameters]
+; V9実用性最優先設定
+MA_Period=20
+MA_Deviation=0.005
+RSI_Period=14
+RSI_Buy_Max=45
+RSI_Sell_Min=55
+Risk_Percent=1.8
+TP_Pips=35
+SL_Pips=20
+Target_Monthly_Trades=10
+Min_Weekly_Trades=2
+Frequency_Priority=true
+SaveToCSV=true
+CSVFileName=DRB_v9_Practical
+```
+
+### 重要なディレクトリパス
+- **MetaTrader 5インストール**: `C:\Program Files\MetaTrader 5\`
+- **ユーザーデータルート**: `C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\`
+- **Expert Advisors**: `MQL5\Experts\`
+- **テスト設定ファイル**: ルート直下（上記ユーザーデータルート）
+- **CSV出力先**: `C:\Users\iida\AppData\Roaming\MetaQuotes\Tester\D0E8209F77C8CF37AD8BF550E51FF075\Agent-127.0.0.1-3000\MQL5\Files\`
+
+### V9戦略実装用完全ワークフロー
+```bash
+# Step 1: V9戦略コンパイル
+"C:\Program Files\MetaTrader 5\metaeditor64.exe" /compile:"C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\DynamicRangeBreakout_v9_practical.mq5"
+
+# Step 2: コンパイル成功確認
+dir "C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\DynamicRangeBreakout_v9_practical.ex5"
+
+# Step 3: MT5プロセス終了
+TASKKILL /F /IM terminal64.exe
+
+# Step 4: バックテスト実行
+"C:\Program Files\MetaTrader 5\terminal64.exe" /auto /config:"C:\Users\iida\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\tester_DynamicRangeBreakout_v9_practical.ini"
+
+# Step 5: CSV結果確認
+find "C:\Users\iida\AppData\Roaming\MetaQuotes\Tester" -name "*DRB_v9*" -type f 2>nul
+
+# Step 6: 結果分析（Pythonスクリプト実行）
+cd "C:\Users\iida\Documents\MetaTrader" && python analyze_drb_v9_results.py
+```
+
+### コンパイルエラー対応手順
+1. **詳細ログ出力**:
+   ```bash
+   "C:\Program Files\MetaTrader 5\metaeditor64.exe" /compile:"[ファイルパス]" /log:"C:\Users\iida\Documents\MetaTrader\compile_debug.log"
+   ```
+
+2. **エラーログ確認**:
+   ```bash
+   type "C:\Users\iida\Documents\MetaTrader\compile_debug.log"
+   ```
+
+3. **enum型変換エラーの典型的修正**:
+   ```mql5
+   // ❌ エラーとなるコード
+   WriteTradeToCSV("CLOSE", position.PositionType(), price, lot, 0, 0, 0, "pattern");
+   
+   // ✅ 修正後のコード
+   ENUM_ORDER_TYPE orderType = (position.PositionType() == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+   WriteTradeToCSV("CLOSE", orderType, price, lot, 0, 0, 0, "pattern");
+   ```
+
+### 重要な注意事項
+- **絶対パス必須**: 全てのパスは絶対パスで指定し、ダブルクォートで囲む
+- **[Tester]セクション**: INIファイルは必ず`[Tester]`セクションを使用
+- **ex5拡張子なし**: Expert名に`.ex5`拡張子は含めない
+- **CSV出力**: `ShutdownTerminal=1`設定が必須
+- **エラー対応**: シンプル化による逃避ではなく、根本原因を特定し完全解決する
