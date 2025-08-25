@@ -1,0 +1,6 @@
+analysis_date,event_date,event_time,event_type,importance,actual,forecast,previous,expected_direction,confidence,ml_confidence,priced_in_factor,enhanced_confidence,trade_signal,recommended_tp_pips,recommended_sl_pips
+2025-08-24 23:17:01,2025-08-24,23:17,Test Signal 1 - Economic Data,HIGH,,0.5,0.3,bullish,0.65,0.60,0.3,0.62,true,50,20
+2025-08-24 23:17:01,2025-08-25,03:17,Test Signal 2 - Economic Data,MEDIUM,,0.5,0.3,bearish,0.65,0.60,0.3,0.62,true,50,20
+2025-08-24 23:17:01,2025-08-25,07:17,Test Signal 3 - Economic Data,HIGH,,0.5,0.3,bullish,0.65,0.60,0.3,0.62,false,50,20
+2025-08-24 23:17:01,2025-08-25,11:17,Test Signal 4 - Economic Data,MEDIUM,,0.5,0.3,bearish,0.65,0.60,0.3,0.62,false,50,20
+2025-08-24 23:17:01,2025-08-25,15:17,Test Signal 5 - Economic Data,HIGH,,0.5,0.3,bullish,0.65,0.60,0.3,0.62,false,50,20
